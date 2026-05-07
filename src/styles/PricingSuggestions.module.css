@@ -1,0 +1,265 @@
+@import '../styles/variables.css';
+
+.section {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1rem 1rem;
+  box-shadow: var(--shadow-md);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  margin-bottom: 1.05rem;
+  padding-bottom: 0.9rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.titleIcon {
+  font-size: 0.9rem;
+  color: var(--color-gray-500);
+  transform: translateY(-1px);
+}
+
+.pricingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 0;
+}
+
+.pricingCard {
+  background: var(--color-gray-100);
+  border: 2px solid var(--color-gray-300);
+  border-radius: 1.35rem;
+  padding: 1.15rem 1rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  min-height: 138px;
+}
+
+.pricingCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+.pricingCard.selected {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.pricingCard.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: var(--color-primary);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.pricingName {
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  margin-bottom: 0.4rem;
+}
+
+.margin {
+  font-size: 0.75rem;
+  color: var(--color-gray-600);
+  margin-bottom: 0.85rem;
+}
+
+.priceLabel {
+  font-size: 0.7rem;
+  color: var(--color-gray-500);
+  margin-bottom: 0.15rem;
+}
+
+.price {
+  font-size: 1.05rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: 0.15rem;
+}
+
+.priceWithTax {
+  font-size: 0.75rem;
+  color: var(--color-gray-600);
+}
+
+.infoBadge {
+  margin-left: 0.6rem;
+  font-size: 0.78rem;
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+  padding: 0.08rem 0.4rem;
+  border-radius: 0.5rem;
+}
+
+.unitSummary {
+  font-size: 0.9rem;
+  color: #718096;
+  margin-top: 6px;
+}
+
+.savingsLine {
+  font-size: 0.85rem;
+  color: #1f2937;
+  margin-top: 8px;
+  background: linear-gradient(90deg, rgba(237, 247, 255, 0.6), transparent);
+  padding: 6px 8px;
+  border-radius: 0.5rem;
+}
+
+.customSection {
+  margin-top: 0.95rem;
+  padding: 1rem 1rem 0.95rem;
+  border-radius: 1.5rem;
+  background: linear-gradient(180deg, rgba(246, 247, 249, 0.95) 0%, rgba(237, 239, 243, 0.9) 100%);
+}
+
+.customHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.customTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.customTitleIcon {
+  font-size: 0.95rem;
+  color: var(--color-gray-600);
+}
+
+.customLabel {
+  font-size: 1rem;
+  color: var(--color-dark);
+  font-weight: var(--font-weight-bold);
+}
+
+.customAmount {
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  white-space: nowrap;
+}
+
+.customSliderRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.customSlider {
+  width: 100%;
+  accent-color: var(--color-primary);
+}
+
+.customPctBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 0.6rem;
+  padding: 0.2rem 0.45rem;
+  background: var(--color-white);
+}
+
+.customPctBox input {
+  width: 3rem;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  text-align: center;
+  background: transparent;
+}
+
+.customPctBox span {
+  color: var(--color-gray-600);
+  font-size: 0.9rem;
+}
+
+.customFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.7rem;
+  font-size: 0.8rem;
+  color: var(--color-gray-600);
+}
+
+.customResult {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.saveButton {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  background: var(--color-success);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.saveButton:hover {
+  background: #20c997;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Slot container (where CostBreakdown is injected) */
+
+@media (max-width: 768px) {
+  .pricingGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .customHeader,
+  .customFooter {
+    flex-wrap: wrap;
+  }
+
+  .customSliderRow {
+    grid-template-columns: 1fr;
+  }
+
+  .customPctBox {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 480px) {
+  .pricingGrid {
+    grid-template-columns: 1fr;
+  }
+}

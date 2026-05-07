@@ -1,0 +1,87 @@
+@import '../styles/variables.css';
+
+.section {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-md);
+}
+
+.sectionTitle {
+  font-size: 0.95rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 2px solid var(--color-gray-200);
+}
+
+.costBreakdown {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.costItem {
+  background: var(--color-gray-100);
+  padding: 1rem 0.95rem;
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-primary);
+  box-shadow: var(--shadow-sm);
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.costLabel {
+  font-size: 0.75rem;
+  color: var(--color-gray-600);
+  margin-bottom: 0.2rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+.costValue {
+  font-size: 1.05rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.totalCost {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: var(--color-white);
+  border-radius: var(--radius-md);
+  padding: 0.9rem;
+  text-align: center;
+  box-shadow: var(--shadow-md);
+  border-left-color: var(--color-white);
+}
+
+.totalCost .costLabel {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.totalCost .costValue {
+  color: var(--color-white);
+  font-size: 1.15rem;
+}
+
+.chart {
+  margin-top: 1rem;
+  text-align: center;
+  color: var(--color-gray-500);
+  padding: var(--spacing-md);
+  background: var(--color-gray-100);
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 768px) {
+  .costBreakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .totalCost {
+    grid-column: 1;
+  }
+}

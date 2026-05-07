@@ -1,0 +1,236 @@
+@import '../styles/variables.css';
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.togglesContainer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.toggleCard {
+  background: var(--color-gray-100);
+  border-radius: 14px;
+  padding: 1rem 1rem 0.95rem;
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+
+.toggleHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.toggleTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.icon {
+  font-size: 1rem;
+  color: var(--color-primary);
+}
+
+.toggleTitle {
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+}
+
+.toggleText {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--color-gray-600);
+  line-height: 1.4;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 26px;
+  flex: 0 0 auto;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: #ddd;
+  border-radius: 999px;
+  transition: 0.25s ease;
+}
+
+.slider::before {
+  content: '';
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.25s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.switch input:checked + .slider {
+  background: #7f7fff;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(18px);
+}
+
+.advancedBody {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-gray-300);
+}
+
+.seriesBody {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-gray-300);
+}
+
+.seriesSummary {
+  margin-top: 0.9rem;
+  padding: 0.75rem 0.8rem;
+  border-radius: 12px;
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+}
+
+.seriesSummaryTitle {
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-dark);
+}
+
+.seriesSummaryText {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-gray-600);
+}
+
+.inputsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.fieldCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fieldHelp {
+  font-size: 0.68rem;
+  color: var(--color-gray-500);
+  line-height: 1.35;
+}
+
+.fieldLabel {
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.inputWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-300);
+  border-radius: 12px;
+  padding: 0.55rem 0.6rem;
+}
+
+.inputWrap input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.95rem;
+  color: var(--color-dark);
+}
+
+.unit {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  color: var(--color-gray-500);
+  white-space: nowrap;
+}
+
+.metricsTitle {
+  margin-top: 1rem;
+  margin-bottom: 0.8rem;
+  font-size: 1.1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.metricCard {
+  background: #e7e7e7;
+  border-radius: 12px;
+  padding: 0.75rem 0.8rem;
+  min-height: 74px;
+}
+
+.metricHighlight {
+  background: #bed8ff;
+}
+
+.metricLabel {
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-dark);
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.metricValue {
+  margin-top: 0.35rem;
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  color: #101010;
+}
+
+@media (max-width: 768px) {
+  .inputsGrid,
+  .metricsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .toggleHeader {
+    gap: 0.75rem;
+  }
+}
