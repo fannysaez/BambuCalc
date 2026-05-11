@@ -35,7 +35,7 @@ export default {
   },
   computed: {
     showHeader() {
-      return !['login', 'signup'].includes(this.$route.name)
+      return !['landing', 'login', 'signup'].includes(this.$route.name)
     },
   },
   methods: {

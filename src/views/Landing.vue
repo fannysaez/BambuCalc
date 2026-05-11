@@ -1,121 +1,406 @@
 <template>
-  <div class="landing">
-    <div class="hero">
-      <div class="hero-content">
-        <h1 class="hero-title">🖨️ BambuCalc</h1>
-        <p class="hero-subtitle">Calculateur de Coûts d'Impression 3D</p>
-        <p class="hero-desc">
-          Estimez vos coûts de production avec précision. Gérez vos devis, suivez vos prix et
-          optimisez vos marges.
+  <div class="landing-page">
+    <section class="landing-visual" aria-hidden="true">
+      <div class="visual-badge">
+        <span class="badge-mark"></span>
+        <span>BambuCalc</span>
+      </div>
+
+      <div class="visual-copy">
+        <h1>Calculez vos impressions 3D sans friction</h1>
+        <p>
+          Une expérience claire et premium pour estimer vos coûts, préparer vos devis et suivre vos
+          marges.
+        </p>
+      </div>
+
+      <div class="visual-illustration">
+        <img
+          src="/imprimante 3d bambu lab P2S Combo.png"
+          alt="Imprimante 3D Bambu Lab P2S Combo"
+          class="visual-printer"
+        />
+        <img src="/main element.png" alt="Illustration organique turquoise" class="visual-main" />
+      </div>
+    </section>
+
+    <section class="landing-panel">
+      <div class="landing-card">
+        <p class="landing-kicker">Calculateur de coûts d'impression 3D</p>
+        <h2>Tout ce qu'il faut pour passer du prototype au devis.</h2>
+        <p class="landing-description">
+          Gardez le contrôle sur les matières, le temps machine, l'amortissement et les remises
+          volume dans une interface unique.
         </p>
 
-        <div class="hero-cta">
+        <div class="landing-features">
+          <div class="feature-card">
+            <BarChart3 class="feature-icon" />
+            <div class="feature-title">Calcul précis</div>
+            <div class="feature-text">
+              Matériau, équipement et main-d'œuvre regroupés dans un seul calcul.
+            </div>
+          </div>
+          <div class="feature-card">
+            <DollarSign class="feature-icon" />
+            <div class="feature-title">Tarification flexible</div>
+            <div class="feature-text">Adaptez vos marges selon le volume et le type de projet.</div>
+          </div>
+          <div class="feature-card">
+            <Zap class="feature-icon" />
+            <div class="feature-title">Séries maîtrisées</div>
+            <div class="feature-text">Pilotez les remises et les coûts de production en série.</div>
+          </div>
+          <div class="feature-card">
+            <Download class="feature-icon" />
+            <div class="feature-title">Devis exportables</div>
+            <div class="feature-text">Préparez et partagez vos devis en quelques secondes.</div>
+          </div>
+        </div>
+
+        <div class="landing-cta">
           <router-link to="/signup" class="btn btn-primary">Créer un compte</router-link>
           <router-link to="/login" class="btn btn-secondary">Se connecter</router-link>
         </div>
       </div>
-
-      <div class="hero-features">
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <div class="feature-title">Calcul Précis</div>
-          <div class="feature-text">
-            Matériau, équipement, main-d'œuvre : tous les coûts en un seul endroit.
-          </div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">💰</div>
-          <div class="feature-title">Tarification Flexible</div>
-          <div class="feature-text">
-            4 niveaux de tarification suggérée + personnalisation complète.
-          </div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">⚡</div>
-          <div class="feature-title">Production en Série</div>
-          <div class="feature-text">
-            Garez les rabais volume, le taux de rebut et l'amortissement.
-          </div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">📥</div>
-          <div class="feature-title">Devis Téléchargeables</div>
-          <div class="feature-text">Générez et sauvegardez vos devis en PDF instantanément.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer-landing">
-      <p>Conçu pour les freelances, les associations et les micro-entreprises d'impression 3D.</p>
-    </div>
+    </section>
   </div>
 </template>
 
 <script>
+import { BarChart3, DollarSign, Zap, Download } from 'lucide-vue-next'
+
 export default {
   name: 'Landing',
+  components: {
+    BarChart3,
+    DollarSign,
+    Zap,
+    Download,
+  },
 }
 </script>
 
 <style scoped>
-.landing {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem 1.25rem;
+.landing-page {
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 1rem;
+  background-image: url('/hero-vagues.svg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  font-family: Inter, 'Segoe UI', Arial, sans-serif;
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden; /* supprime la barre latérale */
+}
+
+:global(html),
+:global(body),
+:global(#app) {
+  height: 100%;
+  overflow: hidden;
+}
+
+.landing-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.18) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-visual {
+  position: relative;
+  overflow: visible;
+  border-radius: 28px 0 0 28px;
+  padding: 2rem 2rem 1.75rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  color: white;
+  color: #fff;
+  background: transparent;
+  isolation: isolate;
+  z-index: 2;
 }
 
-.hero {
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  flex: 1;
+.landing-visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #b1e5e29e;
+  border-radius: 28px 0 0 28px;
+  pointer-events: none;
 }
 
-.hero-content {
+.landing-visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 28px 0 0 28px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.visual-badge,
+.visual-copy,
+.visual-illustration {
+  position: relative;
+  z-index: 1;
+}
+
+.visual-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.badge-mark {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.65rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.62));
+  position: relative;
+  box-shadow: 0 8px 18px rgba(29, 10, 50, 0.18);
+}
+
+.badge-mark::before,
+.badge-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0.25rem 0.45rem auto auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #ef7fa8;
+  transform: rotate(35deg);
+  box-shadow: -0.45rem 0.5rem 0 0 #f4c1cc;
+}
+
+.badge-mark::after {
+  inset: auto auto 0.2rem 0.25rem;
+  width: 0.9rem;
+  height: 0.42rem;
+  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0.2));
+  border-radius: 999px;
+  box-shadow: 0 -0.38rem 0 0 #fff;
+  transform: rotate(-32deg);
+}
+
+.visual-copy {
+  margin-top: 2.8rem;
+  max-width: 100%;
   text-align: center;
-  margin-bottom: 3rem;
 }
 
-.hero-title {
-  font-size: 3.5rem;
+.visual-copy h1 {
+  margin: 0;
+  font-size: clamp(2rem, 2.9vw, 3rem);
+  line-height: 1.03;
+  letter-spacing: -0.03em;
   font-weight: 800;
-  margin-bottom: 0.5rem;
-  letter-spacing: -0.02em;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  white-space: normal;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.hero-subtitle {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  opacity: 0.95;
+.visual-copy p {
+  margin: 1rem 0 0;
+  max-width: 100%;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
-.hero-desc {
-  font-size: 1.1rem;
-  max-width: 600px;
-  margin: 0 auto 2rem;
-  opacity: 0.9;
-  line-height: 1.6;
-}
-
-.hero-cta {
+.visual-illustration {
+  position: relative;
   display: flex;
-  gap: 1rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-left: 0;
+  overflow: visible;
+  min-height: 21rem;
+}
+
+.visual-illustration img {
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 28px 44px rgba(8, 59, 82, 0.26));
+}
+
+.visual-printer {
+  width: min(100%, 170px);
+  max-width: 170px;
+  margin: 0 0 1.2rem 4.2rem;
+  transform: translateY(6px);
+  position: relative;
+  z-index: 3;
+}
+
+.visual-main {
+  width: min(100%, 250px);
+  max-width: 280px;
+  margin: 1.5rem 0 0;
+  transform: translateX(82px) translateY(-32px) rotate(-42deg);
+  position: relative;
+  z-index: 4;
+}
+
+.landing-panel {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-card {
+  width: 100%;
+  background: transparent;
+  border-radius: 0 28px 28px 0;
+  padding: 0.5rem 2rem 1.8rem; /* réduit */
+  box-shadow: -8px 0 20px rgba(29, 18, 43, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  /* margin-left: -3px;  */
+}
+
+.landing-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 0 28px 28px 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0 28px 28px 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.landing-kicker {
+  margin: 0.3rem 0 0;
+  color: #4f7886;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-card h2 {
+  margin: 1.5rem 0 0; /* réduit de 3rem */
+  font-size: clamp(1.5rem, 1.8vw, 1.85rem); /* réduit */
+  line-height: 1.05;
+  color: #1b2f39;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-description {
+  margin: 0.6rem 0 0; /* réduit de 1rem */
+  color: #4f6570;
+  font-size: 0.8rem; /* réduit */
+  line-height: 1.5;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-features {
+  margin-top: 1.8rem; /* réduit de 3.3rem */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 148px));
+  justify-content: center;
+  gap: 1.25rem;
+  position: relative;
+  z-index: 1;
+}
+
+.feature-card {
+  background: #f9fefe;
+  border: 1px solid #cfe4e5;
+  border-radius: 0.85rem;
+  padding: 0.4rem; /* réduit */
+  text-align: center;
+  box-shadow: 0 10px 20px rgba(29, 18, 43, 0.04);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 148px;
+  min-height: 148px;
+  aspect-ratio: 1;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 20px 32px rgba(29, 18, 43, 0.12);
+  border-color: #2e9cab;
+  background: linear-gradient(135deg, #f9fefe 0%, rgba(46, 154, 171, 0.08) 100%);
+}
+
+.feature-icon {
+  width: 1.45rem;
+  height: 1.45rem;
+  color: #2e9cab;
+  margin-bottom: 0.3rem;
+  flex-shrink: 0;
+}
+
+.feature-title {
+  font-size: 0.72rem; /* réduit */
+  font-weight: 700;
+  color: #173645;
+  margin-bottom: 0.1rem;
+}
+
+.feature-text {
+  font-size: 0.66rem; /* réduit */
+  line-height: 1.25;
+  color: #4a6670;
+}
+
+.landing-cta {
+  margin-top: 3.8rem; /* réduit de 3.6rem */
+  display: flex;
+  gap: 1.25rem;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 3rem;
+  align-items: center;
+  position: relative;
+  z-index: 1;
 }
 
 .btn {
-  padding: 0.95rem 2rem;
+  padding: 0.8rem 1.6rem; /* réduit */
   border-radius: 0.75rem;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem; /* réduit */
   text-decoration: none;
   transition: all 0.3s ease;
   display: inline-block;
@@ -125,7 +410,7 @@ export default {
 
 .btn-primary {
   background: white;
-  color: #667eea;
+  color: #1e7f97;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
@@ -135,90 +420,61 @@ export default {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 2px solid white;
+  background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
+  color: #fff;
+  border: 0;
   backdrop-filter: blur(10px);
+  box-shadow: 0 10px 22px rgba(25, 108, 133, 0.28);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.3);
+  filter: brightness(1.03);
   transform: translateY(-2px);
 }
 
-.hero-features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
-  margin-top: 2rem;
-}
-
-.feature-card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  text-align: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-}
-
-.feature-card:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.feature-icon {
-  font-size: 2.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.feature-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.feature-text {
-  font-size: 0.9rem;
-  opacity: 0.85;
-  line-height: 1.5;
-}
-
-.footer-landing {
-  text-align: center;
-  opacity: 0.8;
-  font-size: 0.95rem;
-  padding-top: 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-
 @media (max-width: 768px) {
-  .hero-title {
-    font-size: 2.5rem;
+  .landing-page {
+    grid-template-columns: 1fr;
+    padding: 0.55rem;
   }
 
-  .hero-subtitle {
-    font-size: 1.2rem;
+  .landing-visual,
+  .landing-card {
+    border-radius: 24px;
   }
 
-  .hero-desc {
-    font-size: 1rem;
+  .landing-visual {
+    min-height: 24rem;
+    padding: 1.2rem 1.1rem 1rem;
   }
 
-  .hero-cta {
+  .visual-copy {
+    margin-top: 1.8rem;
+  }
+
+  .visual-copy h1 {
+    font-size: 1.8rem;
+  }
+
+  .landing-card {
+    padding: 1.65rem 1rem 1.25rem;
+  }
+
+  .landing-features {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-card h2 {
+    font-size: 1.75rem;
+  }
+
+  .landing-cta {
     flex-direction: column;
-    align-items: center;
   }
 
   .btn {
     width: 100%;
-    max-width: 300px;
-  }
-
-  .hero-features {
-    grid-template-columns: 1fr;
+    max-width: 320px;
   }
 }
 </style>
