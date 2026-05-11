@@ -154,7 +154,10 @@ export default comp
   background-position: center;
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .auth-page::before {
@@ -573,7 +576,7 @@ export default comp
 @media (max-width: 1100px) {
   .auth-page {
     grid-template-columns: 1fr;
-    padding: 0.85rem;
+    padding: 0.85rem 0.85rem 1.25rem;
     gap: 0.85rem;
   }
 

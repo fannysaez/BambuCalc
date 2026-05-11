@@ -89,7 +89,7 @@ export default {
 
 <style scoped>
 .landing-page {
-  height: 100dvh;
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: 1fr 1fr;
   padding: 1rem;
@@ -100,14 +100,8 @@ export default {
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
   position: relative;
   box-sizing: border-box;
-  overflow: hidden; /* supprime la barre latérale */
-}
-
-:global(html),
-:global(body),
-:global(#app) {
-  height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .landing-page::before {
@@ -475,7 +469,8 @@ export default {
 @media (max-width: 768px) {
   .landing-page {
     grid-template-columns: 1fr;
-    padding: 0.55rem;
+    padding: 0.5rem;
+    gap: 0.75rem;
   }
 
   .landing-visual,
@@ -484,28 +479,70 @@ export default {
   }
 
   .landing-visual {
-    min-height: 24rem;
-    padding: 1.2rem 1.1rem 1rem;
+    min-height: 20rem;
+    padding: 1.1rem 1rem 0.9rem;
   }
 
   .visual-copy {
-    margin-top: 1.8rem;
+    margin-top: 1.35rem;
   }
 
   .visual-copy h1 {
-    font-size: 1.8rem;
+    font-size: clamp(1.45rem, 7vw, 1.9rem);
+  }
+
+  .visual-copy p {
+    font-size: 0.92rem;
+  }
+
+  .visual-illustration {
+    min-height: 15.5rem;
+  }
+
+  .visual-composition {
+    transform: translateX(10px) translateY(0) rotate(-6deg);
+    gap: 0;
+  }
+
+  .visual-printer {
+    width: min(100%, 120px);
+    max-width: 120px;
+    transform: translateY(-10px);
+  }
+
+  .visual-main {
+    width: min(100%, 180px);
+    max-width: 180px;
+    margin-left: -0.6rem;
+    transform: translateY(-4px);
   }
 
   .landing-card {
-    padding: 1.65rem 1rem 1.25rem;
+    padding: 1.35rem 0.95rem 1.15rem;
   }
 
   .landing-features {
     grid-template-columns: 1fr;
+    margin-top: 1.2rem;
+    gap: 0.8rem;
   }
 
   .landing-card h2 {
-    font-size: 1.75rem;
+    font-size: clamp(1.45rem, 6.2vw, 1.75rem);
+    margin-top: 1.05rem;
+  }
+
+  .landing-description {
+    font-size: 0.82rem;
+  }
+
+  .feature-card {
+    min-height: 128px;
+    max-width: none;
+  }
+
+  .landing-cta {
+    margin-top: 2rem;
   }
 
   .landing-cta {
@@ -515,6 +552,67 @@ export default {
   .btn {
     width: 100%;
     max-width: 320px;
+  }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .landing-page {
+    grid-template-columns: 1fr;
+    padding: 0.75rem;
+    gap: 0.85rem;
+  }
+
+  .landing-visual,
+  .landing-card {
+    border-radius: 24px;
+  }
+
+  .landing-visual {
+    min-height: 26rem;
+    padding: 1.4rem 1.25rem 1.2rem;
+  }
+
+  .visual-copy {
+    margin-top: 2rem;
+  }
+
+  .visual-copy h1 {
+    font-size: clamp(1.7rem, 3.5vw, 2.4rem);
+  }
+
+  .visual-illustration {
+    min-height: 17rem;
+  }
+
+  .visual-composition {
+    transform: translateX(18px) translateY(-4px) rotate(-8deg);
+  }
+
+  .visual-printer {
+    width: min(100%, 140px);
+    max-width: 140px;
+  }
+
+  .visual-main {
+    width: min(100%, 210px);
+    max-width: 210px;
+  }
+
+  .landing-card {
+    padding: 1.5rem 1.2rem 1.35rem;
+  }
+
+  .landing-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .feature-card {
+    max-width: none;
+  }
+
+  .landing-cta {
+    margin-top: 2.4rem;
   }
 }
 </style>
