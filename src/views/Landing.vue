@@ -15,12 +15,18 @@
       </div>
 
       <div class="visual-illustration">
-        <img
-          src="/imprimante 3d bambu lab P2S Combo.png"
-          alt="Imprimante 3D Bambu Lab P2S Combo"
-          class="visual-printer"
-        />
-        <img src="/main element.png" alt="Illustration organique turquoise" class="visual-main" />
+        <div class="visual-composition">
+          <img
+            src="/imprimante 3d bambu lab P2S Combo.png"
+            alt="Imprimante 3D Bambu Lab P2S Combo"
+            class="visual-printer"
+          />
+          <img
+            src="/bambuLab Filament.png"
+            alt="Illustration organique turquoise"
+            class="visual-main"
+          />
+        </div>
       </div>
     </section>
 
@@ -71,7 +77,7 @@
 import { BarChart3, DollarSign, Zap, Download } from 'lucide-vue-next'
 
 export default {
-  name: 'Landing',
+  name: 'LandingView',
   components: {
     BarChart3,
     DollarSign,
@@ -224,34 +230,68 @@ export default {
   position: relative;
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: center;
   padding-left: 0;
   overflow: visible;
   min-height: 21rem;
+}
+
+.visual-composition {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.2rem;
+  transform: translateX(46px) translateY(-12px) rotate(-10deg);
+  transform-origin: center bottom;
+  isolation: isolate;
+}
+
+.visual-composition::before {
+  content: '';
+  position: absolute;
+  inset: 10% 8% 0;
+  background: radial-gradient(
+    circle,
+    rgba(46, 154, 171, 0.32) 0%,
+    rgba(46, 154, 171, 0.18) 35%,
+    rgba(46, 154, 171, 0.08) 55%,
+    transparent 75%
+  );
+  filter: blur(26px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.visual-composition::after {
+  content: '';
+  position: absolute;
+  inset: 18% 0 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, transparent 64%);
+  filter: blur(20px);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .visual-illustration img {
   height: auto;
   display: block;
   filter: drop-shadow(0 28px 44px rgba(8, 59, 82, 0.26));
+  position: relative;
+  z-index: 1;
 }
 
 .visual-printer {
   width: min(100%, 170px);
   max-width: 170px;
-  margin: 0 0 1.2rem 4.2rem;
-  transform: translateY(6px);
-  position: relative;
-  z-index: 3;
+  margin: 0 0 1.2rem 0;
+  transform: translateY(-22px);
 }
 
 .visual-main {
   width: min(100%, 250px);
   max-width: 280px;
-  margin: 1.5rem 0 0;
-  transform: translateX(82px) translateY(-32px) rotate(-42deg);
-  position: relative;
-  z-index: 4;
+  margin: 0 0 0 -1rem;
+  transform: translateY(-6px);
 }
 
 .landing-panel {

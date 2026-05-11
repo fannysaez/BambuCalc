@@ -1,8 +1,14 @@
 import { defineComponent } from 'vue'
+import { Home, Lock, UserPlus } from 'lucide-vue-next'
 import { signup } from '../utils/auth'
 
 export default defineComponent({
   name: 'Signup',
+  components: {
+    Home,
+    Lock,
+    UserPlus,
+  },
   data() {
     return {
       firstName: '',
