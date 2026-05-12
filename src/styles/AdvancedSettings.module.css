@@ -225,6 +225,10 @@
 }
 
 @media (max-width: 768px) {
+  .togglesContainer {
+    grid-template-columns: 1fr;
+  }
+
   .inputsGrid,
   .metricsGrid {
     grid-template-columns: 1fr;

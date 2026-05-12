@@ -1,147 +1,154 @@
 <template>
-  <div :class="styles.calculatorShell">
-    <div :class="styles.roadmap">
-      <div :class="styles.roadmapHeader">
-        <div :class="styles.roadmapEyebrow">Roadmap du devis</div>
-        <div :class="styles.roadmapTitle">Suivre les étapes de votre devis</div>
-      </div>
+  <div :class="styles.shell">
 
-      <div :class="styles.roadmapMeta">
-        <div :class="styles.roadmapProgress">
-          Étape {{ currentStepIndex }} / {{ roadmapSteps.length }}
+    <!-- ── STEPPER HORIZONTAL ── -->
+    <div :class="styles.stepper">
+      <div :class="styles.stepperTop">
+        <div :class="styles.stepperMeta">
+          <span :class="styles.stepperCount">Étape {{ currentStepIndex }} / {{ steps.length }}</span>
+          <span :class="styles.stepperCurrent">{{ currentStep.label }} — {{ currentStep.description }}</span>
         </div>
-
-        <button
-          :class="styles.roadmapButton"
-          type="button"
-          :disabled="isLastStep"
-          @click="advanceStep"
-        >
-          Étape suivante
-        </button>
+        <div :class="styles.stepperActions">
+          <button :class="styles.btnNext" type="button" :disabled="isLastStep" @click="advanceStep">
+            Étape suivante →
+          </button>
+          <button
+            v-if="isLastStep"
+            :class="[styles.btnSave, saveStatus === 'ok' && styles.btnSaveOk]"
+            type="button"
+            :disabled="saving"
+            @click="saveQuote"
+          >
+            <span v-if="saving">Sauvegarde…</span>
+            <span v-else-if="saveStatus === 'ok'">✓ Sauvegardé</span>
+            <span v-else>Sauvegarder le devis</span>
+          </button>
+        </div>
       </div>
 
-      <div :class="styles.roadmapProgressTrack">
-        <div :class="styles.roadmapProgressFill" :style="{ width: progressPercent + '%' }"></div>
-      </div>
+      <p v-if="saveStatus === 'error'" :class="styles.saveError">Erreur lors de la sauvegarde. Réessaie.</p>
 
-      <div :class="styles.roadmapFocus">
-        <div :class="styles.roadmapFocusLabel">Étape en cours</div>
-        <div :class="styles.roadmapFocusTitle">{{ currentRoadmapStep.label }}</div>
-        <div :class="styles.roadmapFocusText">{{ currentRoadmapStep.description }}</div>
-      </div>
-
-      <div :class="styles.roadmapSteps">
-        <button
-          v-for="step in roadmapSteps"
-          :key="step.id"
-          :class="[
-            styles.roadmapStep,
-            currentStepIndex === step.index && styles.roadmapStepActive,
-            currentStepIndex > step.index && styles.roadmapStepCompleted,
-          ]"
-          type="button"
-          :disabled="step.index > currentStepIndex + 1"
-          @click="goToStep(step.id)"
-        >
-          <span :class="styles.roadmapStepIndex">{{ step.index }}</span>
-          <span :class="styles.roadmapStepLabel">{{ step.label }}</span>
-        </button>
+      <div :class="styles.stepTrack">
+        <div v-for="(step, i) in steps" :key="step.id" :class="styles.stepItem">
+          <div v-if="i > 0" :class="[styles.stepLine, currentStepIndex > step.index - 1 && styles.stepLineDone]"></div>
+          <button
+            :class="[styles.stepDot, currentStepIndex === step.index && styles.stepDotActive, currentStepIndex > step.index && styles.stepDotDone]"
+            type="button"
+            :disabled="step.index > currentStepIndex"
+            @click="goToStep(step.index)"
+            :title="step.label"
+          >
+            <component v-if="currentStepIndex <= step.index" :is="step.icon" :class="styles.stepIcon" />
+            <span v-else :class="styles.stepCheck">✓</span>
+          </button>
+          <span :class="[styles.stepLabel, currentStepIndex === step.index && styles.stepLabelActive, currentStepIndex > step.index && styles.stepLabelDone]">
+            {{ step.label }}
+          </span>
+        </div>
       </div>
     </div>
 
-    <div :class="styles.calculator">
-      <!-- Panneau gauche: Détails du projet -->
-      <div :class="styles.leftPanel">
-        <section id="step-project" :class="styles.sectionAnchor">
+    <!-- ── ACCORDÉON PROGRESSIF ── -->
+    <div :class="styles.accordion">
+
+      <!-- ÉTAPE 1 — Projet -->
+      <div :class="[styles.accordionCard, currentStepIndex === 1 && styles.accordionCardActive]">
+        <!-- Résumé (étape complétée) -->
+        <button v-if="currentStepIndex > 1" :class="styles.summary" @click="goToStep(1)">
+          <Layers :class="styles.summaryIcon" />
+          <div :class="styles.summaryBody">
+            <span :class="styles.summaryLabel">Projet</span>
+            <span :class="styles.summaryValue">{{ formData.projectName }} · {{ printerLabel }} · {{ profileLabel }}</span>
+          </div>
+          <Pencil :class="styles.summaryEdit" />
+        </button>
+        <!-- Formulaire actif -->
+        <div v-if="currentStepIndex === 1" :class="styles.accordionBody">
           <ProjectDetails
             v-model:projectName="formData.projectName"
             v-model:printProfile="formData.printProfile"
             v-model:printerModel="formData.printerModel"
             v-model:nozzleSize="formData.nozzleSize"
           />
-        </section>
-
-        <section v-if="currentStepIndex >= 2" id="step-filament" :class="styles.sectionAnchor">
-          <FilamentSection
-            v-model:material="formData.material"
-            v-model:costPerKg="formData.costPerKg"
-            v-model:weight="formData.weight"
-          />
-        </section>
-
-        <div v-else :class="[styles.section, styles.lockedStep]">
-          <div :class="styles.lockedTitle">Filaments</div>
-          <div :class="styles.lockedText">Section verrouillée.</div>
-        </div>
-
-        <section v-if="currentStepIndex >= 3" id="step-printing" :class="styles.sectionAnchor">
-          <PrintingTime
-            v-model:hours="formData.hours"
-            v-model:minutes="formData.minutes"
-            v-model:workTime="formData.workTime"
-          />
-        </section>
-
-        <div v-else :class="[styles.section, styles.lockedStep]">
-          <div :class="styles.lockedTitle">Temps d'impression</div>
-          <div :class="styles.lockedText">À venir après la matière.</div>
-        </div>
-
-        <section v-if="currentStepIndex >= 4" id="step-series" :class="styles.sectionAnchor">
-          <ProductionSeries
-            v-model:seriesMode="formData.seriesMode"
-            v-model:seriesSettings="formData.seriesSettings"
-          />
-        </section>
-
-        <div v-else :class="[styles.section, styles.lockedStep]">
-          <div :class="styles.lockedTitle">Production en série</div>
-          <div :class="styles.lockedText">Débloquée après le temps.</div>
         </div>
       </div>
 
-      <!-- Panneau droit: Tarification puis répartition -->
-      <div :class="styles.rightPanel">
-        <section v-if="currentStepIndex >= 5" id="step-pricing" :class="styles.sectionAnchor">
-          <PricingSuggestions
-            :baseCost="calculatedCosts.totalCost"
-            :baseCostPerUnit="calculatedCosts.costPerUnit"
-            :seriesQuantity="calculatedCosts.quantity"
-            :volumeDiscount="
-              formData.seriesSettings && formData.seriesSettings.volumeDiscount
-                ? formData.seriesSettings.volumeDiscount
-                : 0
-            "
-            :taxRate="formData.taxRate"
-            v-model:selectedPricing="selectedPricing"
-            v-model:customMargin="customMargin"
-          />
-        </section>
-
-        <div v-else :class="[styles.section, styles.lockedStep]">
-          <div :class="styles.lockedTitle">Tarification suggérée</div>
-          <div :class="styles.lockedText">Affichée après la production.</div>
+      <!-- ÉTAPE 2 — Matière -->
+      <template v-if="currentStepIndex >= 2">
+        <div :class="[styles.accordionCard, currentStepIndex === 2 && styles.accordionCardActive]">
+          <button v-if="currentStepIndex > 2" :class="styles.summary" @click="goToStep(2)">
+            <Package :class="styles.summaryIcon" />
+            <div :class="styles.summaryBody">
+              <span :class="styles.summaryLabel">Matière</span>
+              <span :class="styles.summaryValue">{{ formData.material }} · {{ formData.costPerKg }}€/kg · {{ formData.weight }}g</span>
+            </div>
+            <Pencil :class="styles.summaryEdit" />
+          </button>
+          <div v-if="currentStepIndex === 2" :class="styles.accordionBody">
+            <FilamentSection
+              v-model:material="formData.material"
+              v-model:costPerKg="formData.costPerKg"
+              v-model:weight="formData.weight"
+            />
+          </div>
         </div>
+      </template>
 
-        <section v-if="currentStepIndex >= 6" id="step-breakdown" :class="styles.sectionAnchor">
-          <CostBreakdown :costs="calculatedCosts" />
-        </section>
-
-        <div v-else :class="[styles.section, styles.lockedStep]">
-          <div :class="styles.lockedTitle">Répartition des coûts</div>
-          <div :class="styles.lockedText">Visible après la tarification.</div>
+      <!-- ÉTAPE 3 — Temps -->
+      <template v-if="currentStepIndex >= 3">
+        <div :class="[styles.accordionCard, currentStepIndex === 3 && styles.accordionCardActive]">
+          <button v-if="currentStepIndex > 3" :class="styles.summary" @click="goToStep(3)">
+            <Clock :class="styles.summaryIcon" />
+            <div :class="styles.summaryBody">
+              <span :class="styles.summaryLabel">Temps</span>
+              <span :class="styles.summaryValue">{{ formData.hours }}h {{ formData.minutes }}min · {{ formData.workTime }}min travail</span>
+            </div>
+            <Pencil :class="styles.summaryEdit" />
+          </button>
+          <div v-if="currentStepIndex === 3" :class="styles.accordionBody">
+            <PrintingTime
+              v-model:hours="formData.hours"
+              v-model:minutes="formData.minutes"
+              v-model:workTime="formData.workTime"
+            />
+          </div>
         </div>
+      </template>
 
-        <section v-if="currentStepIndex >= 7" id="step-advanced" :class="styles.sectionAnchor">
-          <AdvancedSettings />
-        </section>
-
-        <div v-else :class="[styles.section, styles.lockedStep]">
-          <div :class="styles.lockedTitle">Paramètres avancés</div>
-          <div :class="styles.lockedText">Dernière étape du parcours.</div>
+      <!-- ÉTAPE 4 — Tarifs -->
+      <template v-if="currentStepIndex >= 4">
+        <div :class="[styles.accordionCard, currentStepIndex === 4 && styles.accordionCardActive]">
+          <button v-if="currentStepIndex > 4" :class="styles.summary" @click="goToStep(4)">
+            <Tag :class="styles.summaryIcon" />
+            <div :class="styles.summaryBody">
+              <span :class="styles.summaryLabel">Tarifs</span>
+              <span :class="styles.summaryValue">{{ pricingLabel }} · {{ customMargin }}% marge</span>
+            </div>
+            <Pencil :class="styles.summaryEdit" />
+          </button>
+          <div v-if="currentStepIndex === 4" :class="styles.accordionBody">
+            <PricingSuggestions
+              :baseCost="calculatedCosts.totalCost"
+              :baseCostPerUnit="calculatedCosts.costPerUnit"
+              :seriesQuantity="1"
+              :volumeDiscount="0"
+              :taxRate="formData.taxRate"
+              v-model:selectedPricing="selectedPricing"
+              v-model:customMargin="customMargin"
+            />
+          </div>
         </div>
-      </div>
+      </template>
+
+      <!-- ÉTAPE 5 — Coûts -->
+      <template v-if="currentStepIndex >= 5">
+        <div :class="[styles.accordionCard, styles.accordionCardActive]">
+          <div :class="styles.accordionBody">
+            <CostBreakdown :costs="calculatedCosts" />
+          </div>
+        </div>
+      </template>
+
     </div>
   </div>
 </template>
@@ -150,23 +157,15 @@
 import ProjectDetails from './ProjectDetails.vue'
 import FilamentSection from './FilamentSection.vue'
 import PrintingTime from './PrintingTime.vue'
-import ProductionSeries from './ProductionSeries.vue'
-import AdvancedSettings from './AdvancedSettings.vue'
 import CostBreakdown from './CostBreakdown.vue'
 import PricingSuggestions from './PricingSuggestions.vue'
 import styles from '../styles/Calculator.module.css'
+import { saveQuote as saveQuoteToDb } from '../utils/auth'
+import { Layers, Package, Clock, Tag, BarChart3, Pencil } from 'lucide-vue-next'
 
 export default {
   name: 'Calculator',
-  components: {
-    ProjectDetails,
-    FilamentSection,
-    PrintingTime,
-    ProductionSeries,
-    AdvancedSettings,
-    CostBreakdown,
-    PricingSuggestions,
-  },
+  components: { ProjectDetails, FilamentSection, PrintingTime, CostBreakdown, PricingSuggestions, Layers, Package, Clock, Tag, BarChart3, Pencil },
   data() {
     return {
       styles,
@@ -182,186 +181,85 @@ export default {
         minutes: 0,
         workTime: 0,
         packagingCost: 0,
-        // production en série
-        seriesMode: false,
-        seriesSettings: {
-          quantity: 10,
-          volumeDiscount: 5,
-          scrapRate: 2,
-          setupCost: 50,
-          prepTimeMinutes: 15,
-          changeMaterialMinutes: 10,
-          packagingCostUnit: 0.2,
-          productionDays: 7,
-        },
         taxRate: 20,
       },
       selectedPricing: 'standard',
       customMargin: 50,
       currentStepIndex: 1,
-      roadmapSteps: [
-        {
-          id: 'step-project',
-          index: 1,
-          label: 'Projet',
-          description: "Nom, profil d'impression, modèle et buse.",
-        },
-        {
-          id: 'step-filament',
-          index: 2,
-          label: 'Matière',
-          description: 'Type de filament, marque, coût au kilo et poids.',
-        },
-        {
-          id: 'step-printing',
-          index: 3,
-          label: 'Temps',
-          description: 'Heures, minutes et temps de travail.',
-        },
-        {
-          id: 'step-series',
-          index: 4,
-          label: 'Série',
-          description: 'Réglages pour les productions en plusieurs exemplaires.',
-        },
-        {
-          id: 'step-pricing',
-          index: 5,
-          label: 'Tarifs',
-          description: 'Choisir la marge ou la tarification suggérée.',
-        },
-        {
-          id: 'step-breakdown',
-          index: 6,
-          label: 'Coûts',
-          description: 'Voir le détail des coûts et le total TTC.',
-        },
-        {
-          id: 'step-advanced',
-          index: 7,
-          label: 'Réglages',
-          description: 'Paramètres avancés de production et machine.',
-        },
+      saving: false,
+      saveStatus: null,
+      steps: [
+        { id: 'step-project',   index: 1, label: 'Projet',  icon: 'Layers',    description: "Nom, imprimante et profil." },
+        { id: 'step-filament',  index: 2, label: 'Matière', icon: 'Package',   description: 'Filament, coût et poids.' },
+        { id: 'step-printing',  index: 3, label: 'Temps',   icon: 'Clock',     description: "Durée et temps de travail." },
+        { id: 'step-pricing',   index: 4, label: 'Tarifs',  icon: 'Tag',       description: 'Marge et tarification.' },
+        { id: 'step-breakdown', index: 5, label: 'Coûts',   icon: 'BarChart3', description: 'Total et répartition TTC.' },
       ],
     }
   },
+  computed: {
+    isLastStep() { return this.currentStepIndex >= this.steps.length },
+    currentStep() { return this.steps[this.currentStepIndex - 1] || this.steps[0] },
+    printerLabel() {
+      const map = { 'p2s-mono': 'P2S Combo', 'x1c': 'X1C', 'a1-mini': 'A1 Mini', 'a1': 'A1' }
+      return map[this.formData.printerModel] || this.formData.printerModel
+    },
+    profileLabel() {
+      const map = { normal: 'Normal', quality: 'Qualité', speed: 'Vitesse', silent: 'Silencieux' }
+      return map[this.formData.printProfile] || this.formData.printProfile
+    },
+    pricingLabel() {
+      const map = { standard: 'Standard', competitive: 'Compétitif', premium: 'Premium', custom: 'Personnalisé' }
+      return map[this.selectedPricing] || this.selectedPricing
+    },
+    calculatedCosts() {
+      const materialCost = ((Number(this.formData.weight) || 0) / 1000) * (Number(this.formData.costPerKg) || 0)
+      const printHours = (Number(this.formData.hours) || 0) + (Number(this.formData.minutes) || 0) / 60
+      const equipmentCost = printHours * 5
+      const workCost = ((Number(this.formData.workTime) || 0) / 60) * 15
+      const packagingCost = Number(this.formData.packagingCost) || 0
+      const subtotal = materialCost + equipmentCost + workCost + packagingCost
+      const tax = (subtotal * (Number(this.formData.taxRate) || 0)) / 100
+      const totalCost = subtotal + tax
+      const r = (v) => Math.round(v * 100) / 100
+      return { quantity: 1, materialCost: r(materialCost), equipmentCost: r(equipmentCost), workCost: r(workCost), packagingCost: r(packagingCost), subtotal: r(subtotal), tax: r(tax), totalCost: r(totalCost), costPerUnit: r(totalCost) }
+    },
+  },
   methods: {
-    goToStep(stepId) {
-      const targetIndex = this.roadmapSteps.findIndex((step) => step.id === stepId) + 1
-
-      if (targetIndex > this.currentStepIndex + 1) {
-        return
-      }
-
-      this.currentStepIndex = Math.max(this.currentStepIndex, targetIndex)
-
+    goToStep(index) {
+      if (index > this.currentStepIndex) return
+      this.currentStepIndex = index
       this.$nextTick(() => {
-        const target = document.getElementById(stepId)
-
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
+        const el = document.getElementById(this.steps[index - 1]?.id)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       })
     },
     advanceStep() {
-      if (this.currentStepIndex < this.roadmapSteps.length) {
+      if (this.currentStepIndex < this.steps.length) {
         this.currentStepIndex += 1
-        const nextStep = this.roadmapSteps[this.currentStepIndex - 1]
-
-        if (nextStep) {
-          this.$nextTick(() => {
-            const target = document.getElementById(nextStep.id)
-
-            if (target) {
-              target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }
-          })
-        }
+        this.$nextTick(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }))
       }
     },
-  },
-  computed: {
-    isLastStep() {
-      return this.currentStepIndex >= this.roadmapSteps.length
-    },
-    currentRoadmapStep() {
-      return this.roadmapSteps[this.currentStepIndex - 1] || this.roadmapSteps[0]
-    },
-    progressPercent() {
-      const max = Math.max(1, this.roadmapSteps.length - 1)
-      const pct = ((this.currentStepIndex - 1) / max) * 100
-      return Math.min(100, Math.max(0, Math.round(pct)))
-    },
-    calculatedCosts() {
-      // production series settings
-      const seriesMode = !!this.formData.seriesMode
-      const s = Object.assign(
-        {
-          quantity: 1,
-          scrapRate: 0,
-          setupCost: 0,
-          prepTimeMinutes: 0,
-          changeMaterialMinutes: 0,
-          packagingCostUnit: 0,
-          volumeDiscount: 0,
-        },
-        this.formData.seriesSettings || {},
-      )
-
-      const quantity = seriesMode ? Math.max(1, Number(s.quantity) || 1) : 1
-      const scrapMultiplier = 1 + (Number(s.scrapRate) || 0) / 100
-      const effectiveUnits = quantity * scrapMultiplier
-
-      // Material: weight is grams per unit
-      const materialPerUnitKg = (Number(this.formData.weight) || 0) / 1000
-      const materialCost =
-        materialPerUnitKg * (Number(this.formData.costPerKg) || 0) * effectiveUnits
-
-      // Time-based costs: assume hours/minutes are time per unit
-      const timePerUnitHours =
-        (Number(this.formData.hours) || 0) + (Number(this.formData.minutes) || 0) / 60
-      const totalPrintHours = timePerUnitHours * effectiveUnits
-      const machineRatePerHour = 5
-      const equipmentCost = totalPrintHours * machineRatePerHour
-
-      // Work cost: workTime is minutes per unit (manual interventions)
-      const labourRatePerHour = 15
-      const workTimePerUnitHours = (Number(this.formData.workTime) || 0) / 60
-      const workCost = workTimePerUnitHours * labourRatePerHour * effectiveUnits
-
-      // Setup and prep: one-off per lot, amortized per unit
-      const setupCostTotal = Number(s.setupCost) || 0
-      const prepLaborHours = (Number(s.prepTimeMinutes) || 0) / 60
-      const changeMaterialHours = (Number(s.changeMaterialMinutes) || 0) / 60
-      const setupLaborCost = (prepLaborHours + changeMaterialHours) * labourRatePerHour
-      const amortizedSetupPerUnit = quantity > 0 ? (setupCostTotal + setupLaborCost) / quantity : 0
-
-      // Packaging: per unit if seriesMode, otherwise use formData.packagingCost as job-level
-      const packagingPerUnit = Number(s.packagingCostUnit) || 0
-      const packagingCost = seriesMode
-        ? packagingPerUnit * quantity
-        : Number(this.formData.packagingCost) || 0
-
-      const subtotalBeforeTax =
-        materialCost + equipmentCost + workCost + packagingCost + setupCostTotal + setupLaborCost
-      const tax = (subtotalBeforeTax * (Number(this.formData.taxRate) || 0)) / 100
-      const totalAfterTax = subtotalBeforeTax + tax
-
-      return {
-        quantity,
-        effectiveUnits: Math.round(effectiveUnits * 100) / 100,
-        materialCost: Math.round(materialCost * 100) / 100,
-        equipmentCost: Math.round(equipmentCost * 100) / 100,
-        workCost: Math.round(workCost * 100) / 100,
-        packagingCost: Math.round(packagingCost * 100) / 100,
-        setupCostTotal: Math.round(setupCostTotal * 100) / 100,
-        setupLaborCost: Math.round(setupLaborCost * 100) / 100,
-        amortizedSetupPerUnit: Math.round(amortizedSetupPerUnit * 100) / 100,
-        subtotal: Math.round(subtotalBeforeTax * 100) / 100,
-        tax: Math.round(tax * 100) / 100,
-        totalCost: Math.round(totalAfterTax * 100) / 100,
-        costPerUnit: Math.round((totalAfterTax / Math.max(1, quantity)) * 100) / 100,
-      }
+    async saveQuote() {
+      this.saving = true
+      this.saveStatus = null
+      try {
+        const c = this.calculatedCosts
+        await saveQuoteToDb({
+          project_name: this.formData.projectName, print_profile: this.formData.printProfile,
+          printer_model: this.formData.printerModel, nozzle_size: this.formData.nozzleSize,
+          material: this.formData.material, cost_per_kg: this.formData.costPerKg,
+          weight: this.formData.weight, hours: this.formData.hours, minutes: this.formData.minutes,
+          work_time: this.formData.workTime, packaging_cost: this.formData.packagingCost,
+          tax_rate: this.formData.taxRate, selected_pricing: this.selectedPricing,
+          custom_margin: this.customMargin, material_cost: c.materialCost,
+          equipment_cost: c.equipmentCost, work_cost: c.workCost,
+          total_cost: c.totalCost, cost_per_unit: c.costPerUnit, quantity: 1,
+        })
+        this.saveStatus = 'ok'
+        setTimeout(() => { this.saveStatus = null }, 3000)
+      } catch { this.saveStatus = 'error' }
+      finally { this.saving = false }
     },
   },
 }

@@ -1,13 +1,13 @@
-/* Couleurs primaires */
+/* Couleurs primaires — teal unifié avec Landing / Login / Signup */
 :root {
-  --color-primary: #0066cc;
-  --color-primary-light: #e6f0ff;
-  --color-primary-dark: #004a99;
+  --color-primary: #2e9cab;
+  --color-primary-light: #e8f7f9;
+  --color-primary-dark: #1f7f97;
 
   /* Couleurs secondaires */
-  --color-success: #28a745;
-  --color-warning: #ffc107;
-  --color-danger: #dc3545;
+  --color-success: #27ae60;
+  --color-warning: #f39c12;
+  --color-danger: #e74c3c;
 
   /* Couleurs neutres */
   --color-dark: #1a202c;
@@ -33,9 +33,9 @@
   --radius-lg: 12px;
 
   /* Shadow */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.1);
 
   /* Font */
   --font-size-xs: 0.75rem;

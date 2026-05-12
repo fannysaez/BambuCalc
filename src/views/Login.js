@@ -1,30 +1,62 @@
 import { defineComponent } from 'vue'
 import { Home, Lock, UserPlus } from 'lucide-vue-next'
-import { login } from '../utils/auth'
+import { login, loginWithGoogle, resetPasswordForEmail, checkIsAdmin } from '../utils/auth'
 
 export default defineComponent({
   name: 'Login',
-  components: {
-    Home,
-    Lock,
-    UserPlus,
-  },
+  components: { Home, Lock, UserPlus },
   data() {
     return {
       email: '',
       password: '',
       error: null,
+      loading: false,
+      // Mot de passe oublié
+      forgotMode: false,
+      forgotEmail: '',
+      forgotSent: false,
+      forgotLoading: false,
+      forgotError: null,
     }
   },
   methods: {
-    onSubmit() {
-      const res = login({ email: this.email, password: this.password })
-      if (res) {
-        this.$router.push('/calculator')
-      } else {
-        this.error = 'Utilisateur non trouvé. Créez un compte.'
-        alert(this.error)
+    async onSubmit() {
+      this.error = null
+      this.loading = true
+      try {
+        await login({ email: this.email, password: this.password })
+        const isAdmin = await checkIsAdmin()
+        this.$router.push(isAdmin ? '/admin' : '/dashboard')
+      } catch (err) {
+        this.error = 'Email ou mot de passe incorrect.'
+      } finally {
+        this.loading = false
       }
+    },
+    async onGoogle() {
+      try {
+        await loginWithGoogle()
+      } catch (err) {
+        this.error = 'Connexion Google impossible. Réessaie.'
+      }
+    },
+    async onForgot() {
+      this.forgotError = null
+      this.forgotLoading = true
+      try {
+        await resetPasswordForEmail(this.forgotEmail)
+        this.forgotSent = true
+      } catch (err) {
+        this.forgotError = 'Adresse introuvable ou erreur. Vérifie ton email.'
+      } finally {
+        this.forgotLoading = false
+      }
+    },
+    backToLogin() {
+      this.forgotMode = false
+      this.forgotSent = false
+      this.forgotEmail = ''
+      this.forgotError = null
     },
   },
 })

@@ -101,7 +101,6 @@ export default {
   position: relative;
   box-sizing: border-box;
   overflow-x: hidden;
-  overflow-y: auto;
 }
 
 .landing-page::before {
@@ -523,8 +522,8 @@ export default {
 
   .landing-features {
     grid-template-columns: 1fr;
-    margin-top: 1.2rem;
-    gap: 0.8rem;
+    margin-top: 1rem;
+    gap: 0.5rem;
   }
 
   .landing-card h2 {
@@ -536,22 +535,60 @@ export default {
     font-size: 0.82rem;
   }
 
+  /* Cards horizontales sur mobile : icône à gauche, texte à droite */
   .feature-card {
-    min-height: 128px;
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 0.85rem;
+    row-gap: 0.1rem;
+    align-items: center;
+    text-align: left;
+    padding: 0.8rem 1rem;
+    min-height: 0;
+    aspect-ratio: unset;
     max-width: none;
   }
 
-  .landing-cta {
-    margin-top: 2rem;
+  .feature-icon {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    width: 2.6rem;
+    height: 2.6rem;
+    padding: 0.5rem;
+    background: rgba(46, 154, 171, 0.12);
+    border-radius: 0.65rem;
+    margin-bottom: 0;
+    align-self: center;
+    justify-self: center;
   }
 
+  .feature-title {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 0.84rem;
+    align-self: end;
+  }
+
+  .feature-text {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.72rem;
+    align-self: start;
+  }
+
+  /* CTAs côte à côte sur mobile */
   .landing-cta {
-    flex-direction: column;
+    flex-direction: row;
+    margin-top: 1.4rem;
+    gap: 0.75rem;
   }
 
   .btn {
-    width: 100%;
-    max-width: 320px;
+    flex: 1;
+    text-align: center;
+    padding: 0.78rem 0.85rem;
+    font-size: 0.88rem;
   }
 }
 
@@ -604,15 +641,32 @@ export default {
 
   .landing-features {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
+    gap: 0.85rem;
   }
 
   .feature-card {
     max-width: none;
+    aspect-ratio: unset;
+    min-height: 130px;
+    padding: 1rem;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .feature-icon {
+    width: 1.55rem;
+    height: 1.55rem;
+    margin-bottom: 0.4rem;
   }
 
   .landing-cta {
-    margin-top: 2.4rem;
+    margin-top: 2rem;
+    gap: 1rem;
+  }
+
+  .btn {
+    padding: 0.82rem 1.4rem;
   }
 }
 </style>

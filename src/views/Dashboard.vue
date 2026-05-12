@@ -1,0 +1,602 @@
+<template>
+  <div class="dash-page">
+
+    <!-- Hero bar -->
+    <div class="dash-hero">
+      <div class="dash-hero-left">
+        <div class="dash-avatar">
+          <User class="dash-avatar-icon" />
+        </div>
+        <div>
+          <p class="dash-eyebrow">Tableau de bord</p>
+          <h1 class="dash-greeting">Bonjour{{ displayName ? ', ' + displayName : '' }} !</h1>
+        </div>
+      </div>
+      <router-link to="/calculator/1" class="btn-new">
+        <Plus class="btn-new-icon" />
+        Nouveau devis
+      </router-link>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <FileText class="stat-icon" />
+        <div>
+          <p class="stat-value">{{ quotes.length }}</p>
+          <p class="stat-label">Devis créés</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <TrendingUp class="stat-icon stat-icon--teal" />
+        <div>
+          <p class="stat-value">{{ fmtEur(avgCost) }}</p>
+          <p class="stat-label">Coût moyen</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <Package class="stat-icon stat-icon--amber" />
+        <div>
+          <p class="stat-value">{{ topMaterial || '—' }}</p>
+          <p class="stat-label">Matière fréquente</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <Wallet class="stat-icon stat-icon--purple" />
+        <div>
+          <p class="stat-value">{{ fmtEur(totalRevenue) }}</p>
+          <p class="stat-label">Total généré</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste des devis -->
+    <div class="quotes-card">
+      <div class="quotes-header">
+        <h2 class="quotes-title">Mes devis</h2>
+        <span class="quotes-count">{{ quotes.length }} devis</span>
+      </div>
+
+      <!-- Chargement -->
+      <div v-if="loading" class="empty-state">
+        <div class="spinner" />
+        <p>Chargement…</p>
+      </div>
+
+      <!-- Vide -->
+      <div v-else-if="quotes.length === 0" class="empty-state">
+        <FileText class="empty-icon" />
+        <p class="empty-title">Aucun devis pour l'instant</p>
+        <p class="empty-sub">Lance le calculateur pour créer ton premier devis.</p>
+        <router-link to="/calculator/1" class="btn-new btn-new--sm">Créer un devis</router-link>
+      </div>
+
+      <!-- Table -->
+      <div v-else class="quotes-table-wrap">
+        <table class="quotes-table">
+          <thead>
+            <tr>
+              <th>N° Devis</th>
+              <th>Pièce</th>
+              <th>Client</th>
+              <th>Matière</th>
+              <th>Total TTC</th>
+              <th>Statut</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="q in quotes" :key="q.id">
+              <td class="td-num">{{ q.quote_number || '—' }}</td>
+              <td class="td-name">{{ q.project_name || '—' }}</td>
+              <td class="td-client">{{ q.client_name || '—' }}</td>
+              <td><span class="mat-tag">{{ q.material || '—' }}</span></td>
+              <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
+              <td><span :class="['status-badge', 'status-' + (q.status || 'pending')]">{{ statusLabel(q.status) }}</span></td>
+              <td class="td-date">{{ fmtDate(q.created_at) }}</td>
+              <td class="td-actions">
+                <button class="btn-pdf" @click="downloadPDF(q)" title="Télécharger le devis PDF">
+                  <Download class="del-icon" />
+                </button>
+                <button class="btn-del" @click="confirmDelete(q)" title="Supprimer">
+                  <Trash2 class="del-icon" />
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modal confirmation suppression -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="deleteTarget" class="modal-overlay" @click.self="deleteTarget = null">
+          <div class="modal-box">
+            <div class="modal-icon-wrap">
+              <Trash2 class="modal-icon" />
+            </div>
+            <h3 class="modal-title">Supprimer ce devis ?</h3>
+            <p class="modal-sub">
+              <strong>{{ deleteTarget.quote_number }}</strong> — {{ deleteTarget.project_name }}<br />
+              Cette action est irréversible.
+            </p>
+            <div class="modal-actions">
+              <button class="btn-cancel" @click="deleteTarget = null">Annuler</button>
+              <button class="btn-confirm-del" :disabled="deleting" @click="doDelete">
+                {{ deleting ? 'Suppression…' : 'Supprimer' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <ToastMessage ref="toast" />
+
+  </div>
+</template>
+
+<script>
+import { supabase } from '../lib/supabase'
+import { getQuotes } from '../utils/auth'
+import { generateQuotePDF } from '../utils/generateQuotePDF'
+import ToastMessage from '../components/ToastMessage.vue'
+import { User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download } from 'lucide-vue-next'
+
+export default {
+  name: 'Dashboard',
+  components: { ToastMessage, User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download },
+  data() {
+    return {
+      displayName: '',
+      quotes: [],
+      loading: true,
+      deleteTarget: null,
+      deleting: false,
+    }
+  },
+  computed: {
+    avgCost() {
+      if (!this.quotes.length) return 0
+      const sum = this.quotes.reduce((a, q) => a + (q.total_cost || 0), 0)
+      return sum / this.quotes.length
+    },
+    totalRevenue() {
+      return this.quotes.reduce((a, q) => a + (q.total_cost || 0), 0)
+    },
+    topMaterial() {
+      if (!this.quotes.length) return ''
+      const counts = {}
+      this.quotes.forEach(q => { if (q.material) counts[q.material] = (counts[q.material] || 0) + 1 })
+      return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
+    },
+  },
+  async created() {
+    const { data } = await supabase.auth.getUser()
+    const user = data.user
+    if (user) {
+      const meta = user.user_metadata || {}
+      const full = meta.full_name || meta.name || ''
+      this.displayName = full.split(' ')[0] || user.email?.split('@')[0] || ''
+    }
+    await this.loadQuotes()
+  },
+  methods: {
+    async loadQuotes() {
+      this.loading = true
+      try {
+        const result = await getQuotes()
+        this.quotes = result ?? []
+      } catch (e) {
+        console.error('[Dashboard] loadQuotes error:', e)
+        this.$refs.toast?.show(`Erreur : ${e?.message || JSON.stringify(e)}`, 'error')
+      } finally {
+        this.loading = false
+      }
+    },
+    statusLabel(status) {
+      return { pending: 'En attente', accepted: 'Accepté', refused: 'Refusé', sent: 'Envoyé' }[status] || 'En attente'
+    },
+    downloadPDF(q) {
+      generateQuotePDF(q)
+    },
+    confirmDelete(q) {
+      this.deleteTarget = q
+    },
+    async doDelete() {
+      this.deleting = true
+      try {
+        const { error } = await supabase.from('quotes').delete().eq('id', this.deleteTarget.id)
+        if (error) throw error
+        this.quotes = this.quotes.filter(q => q.id !== this.deleteTarget.id)
+        this.$refs.toast.show('Devis supprimé.', 'success', 2500)
+        this.deleteTarget = null
+      } catch {
+        this.$refs.toast.show('Erreur lors de la suppression.', 'error')
+      } finally {
+        this.deleting = false
+      }
+    },
+    fmtEur(v) {
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
+    },
+    fmtDate(iso) {
+      if (!iso) return '—'
+      return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso))
+    },
+  },
+}
+</script>
+
+<style scoped>
+.dash-page {
+  min-height: 100vh;
+  background: #f0f4f8;
+  padding: 1.5rem 1.5rem 3rem;
+  max-width: 900px;
+  margin: 0 auto;
+  font-family: Inter, 'Segoe UI', Arial, sans-serif;
+}
+
+/* ── Hero ── */
+.dash-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.dash-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.dash-avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(46,156,171,0.3);
+  flex-shrink: 0;
+}
+
+.dash-avatar-icon { width: 1.4rem; height: 1.4rem; color: #fff; }
+
+.dash-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #2e9cab;
+  margin: 0 0 0.1rem;
+}
+
+.dash-greeting {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #1b2f39;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ── Bouton nouveau devis ── */
+.btn-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(46,156,171,0.3);
+  transition: filter 0.2s ease, transform 0.2s ease;
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+}
+.btn-new:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.btn-new--sm { margin-top: 0.75rem; font-size: 0.82rem; }
+
+.btn-new-icon { width: 0.95rem; height: 0.95rem; }
+
+/* ── Stats ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.stat-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #a0aec0;
+  flex-shrink: 0;
+}
+.stat-icon--teal   { color: #2e9cab; }
+.stat-icon--amber  { color: #d69e2e; }
+.stat-icon--purple { color: #805ad5; }
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #1b2f39;
+  margin: 0 0 0.1rem;
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #a0aec0;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Carte des devis ── */
+.quotes-card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+
+.quotes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f0f4f8;
+}
+
+.quotes-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1b2f39;
+  margin: 0;
+}
+
+.quotes-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #a0aec0;
+  background: #f0f4f8;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+/* ── Empty / Loading ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 3rem 1.5rem;
+  color: #a0aec0;
+  text-align: center;
+}
+
+.empty-icon { width: 2.5rem; height: 2.5rem; color: #cbd5e0; }
+
+.empty-title { font-size: 0.95rem; font-weight: 700; color: #4a5568; margin: 0; }
+.empty-sub   { font-size: 0.8rem; color: #a0aec0; margin: 0; }
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2e9cab;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Table ── */
+.quotes-table-wrap { overflow-x: auto; }
+
+.quotes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.quotes-table thead th {
+  padding: 0.6rem 0.85rem;
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a0aec0;
+  background: #f7f9fc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.quotes-table tbody tr {
+  border-bottom: 1px solid #f0f4f8;
+  transition: background 0.15s ease;
+}
+.quotes-table tbody tr:last-child { border-bottom: none; }
+.quotes-table tbody tr:hover { background: #f8fffe; }
+
+.quotes-table td {
+  padding: 0.75rem 0.85rem;
+  color: #2d3748;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.td-num    { font-family: 'Courier New', monospace; font-size: 0.75rem; color: #718096; }
+.td-name   { font-weight: 700; color: #1b2f39; }
+.td-client { color: #718096; }
+.td-center { text-align: center; }
+.td-total  { font-weight: 800; color: #2e9cab; white-space: nowrap; }
+.td-date   { color: #a0aec0; font-size: 0.78rem; white-space: nowrap; }
+.td-actions{ text-align: right; }
+
+.mat-tag {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  background: rgba(46,156,171,0.1);
+  color: #1f7f97;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-pending  { background: #fffaf0; color: #d69e2e; border: 1px solid #f6e05e; }
+.status-accepted { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+.status-refused  { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+.status-sent     { background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; }
+
+/* ── Bouton supprimer ── */
+.btn-pdf, .btn-del {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e0;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+.btn-pdf:hover { background: #ebf8ff; color: #2e9cab; }
+.btn-del:hover { background: #fff5f5; color: #e53e3e; }
+.del-icon { width: 0.9rem; height: 0.9rem; }
+.td-actions { text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 0.2rem; }
+
+/* ── Modal suppression ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.modal-icon-wrap {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: #fff5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+.modal-icon { width: 1.4rem; height: 1.4rem; color: #e53e3e; }
+
+.modal-title { font-size: 1.05rem; font-weight: 800; color: #1b2f39; margin: 0; }
+.modal-sub   { font-size: 0.82rem; color: #718096; margin: 0; line-height: 1.5; }
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.btn-cancel {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #718096;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+.btn-cancel:hover { border-color: #cbd5e0; }
+
+.btn-confirm-del {
+  flex: 1;
+  padding: 0.6rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fc8181 0%, #e53e3e 100%);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 12px rgba(229,62,62,0.3);
+  transition: filter 0.15s ease;
+}
+.btn-confirm-del:hover:not(:disabled) { filter: brightness(1.06); }
+.btn-confirm-del:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Transition modal ── */
+.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-active .modal-box, .modal-leave-active .modal-box { transition: transform 0.2s ease; }
+.modal-enter-from .modal-box, .modal-leave-to .modal-box { transform: scale(0.94) translateY(8px); }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .dash-page { padding: 1rem 1rem 2rem; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .dash-greeting { font-size: 1.1rem; }
+  .quotes-table thead th:nth-child(3),
+  .quotes-table td:nth-child(3),
+  .quotes-table thead th:nth-child(7),
+  .quotes-table td:nth-child(7) { display: none; }
+}
+</style>

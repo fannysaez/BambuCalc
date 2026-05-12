@@ -92,21 +92,27 @@
             />
           </div>
 
-          <button type="submit" class="primary-btn">Créer un compte</button>
+          <!-- RGPD -->
+          <label class="gdpr-check">
+            <input type="checkbox" v-model="gdprAccepted" />
+            <span>
+              J'accepte la
+              <router-link to="/privacy" target="_blank" class="gdpr-link">politique de confidentialité</router-link>
+              et le traitement de mes données personnelles conformément au RGPD.
+            </span>
+          </label>
+
+          <p v-if="error" class="auth-error">{{ error }}</p>
+
+          <button type="submit" class="primary-btn" :disabled="loading || !gdprAccepted">
+            {{ loading ? 'Création…' : 'Créer un compte' }}
+          </button>
         </form>
 
         <div class="auth-divider"><span>ou</span></div>
 
         <div class="social-grid">
-          <button type="button" class="social-btn social-facebook">
-            <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-              />
-            </svg>
-            S'inscrire avec Facebook
-          </button>
-          <button type="button" class="social-btn social-google">
+          <button type="button" class="social-btn social-google" @click="onGoogle">
             <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -155,9 +161,6 @@ export default comp
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
   position: relative;
   overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 .auth-page::before {
@@ -486,6 +489,16 @@ export default comp
   box-shadow: 0 0 0 3px rgba(46, 154, 171, 0.16);
 }
 
+.auth-error {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.4rem;
+  background: rgba(220, 53, 69, 0.08);
+  border: 1px solid rgba(220, 53, 69, 0.25);
+  color: #c0392b;
+  font-size: 0.85rem;
+}
+
 .primary-btn {
   margin-top: 0.4rem;
   width: 100%;
@@ -498,6 +511,35 @@ export default comp
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 10px 18px rgba(25, 108, 133, 0.2);
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.primary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.gdpr-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: #4f6570;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.gdpr-check input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+  accent-color: #2e9cab;
+  cursor: pointer;
+}
+.gdpr-link {
+  color: #2e9cab;
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .auth-divider {
@@ -523,7 +565,7 @@ export default comp
 
 .social-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
@@ -591,6 +633,20 @@ export default comp
 
   .visual-copy {
     max-width: 24rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 2rem 1rem 1.5rem;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .social-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

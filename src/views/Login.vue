@@ -1,21 +1,5 @@
 <template>
   <div class="auth-page">
-    <section class="auth-visual" aria-hidden="true">
-      <div class="visual-badge">
-        <span class="badge-mark"></span>
-        <span>BambuCalc</span>
-      </div>
-
-      <div class="visual-copy">
-        <h1>Imaginez vos impressions en 3D</h1>
-        <p>Un espace clair, rapide et premium pour piloter vos devis.</p>
-      </div>
-
-      <div class="visual-illustration">
-        <img src="/login-hero.svg" alt="Clé de connexion" />
-      </div>
-    </section>
-
     <section class="auth-form-panel">
       <div class="auth-card">
         <router-link
@@ -45,65 +29,109 @@
           <p>Accédez à vos devis et à vos projets.</p>
         </div>
 
-        <form @submit.prevent="onSubmit" class="auth-form">
-          <div class="field">
-            <label for="login-email">Email</label>
-            <input
-              id="login-email"
-              v-model="email"
-              type="email"
-              placeholder="vous@exemple.com"
-              required
-            />
+        <!-- ── Mode connexion normal ── -->
+        <template v-if="!forgotMode">
+          <form @submit.prevent="onSubmit" class="auth-form">
+            <div class="field">
+              <label for="login-email">Email</label>
+              <input
+                id="login-email"
+                v-model="email"
+                type="email"
+                placeholder="vous@exemple.com"
+                required
+              />
+            </div>
+
+            <div class="field">
+              <div class="field-label-row">
+                <label for="login-password">Mot de passe</label>
+                <button type="button" class="forgot-link" @click="forgotMode = true">
+                  Mot de passe oublié ?
+                </button>
+              </div>
+              <input
+                id="login-password"
+                v-model="password"
+                type="password"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <p v-if="error" class="auth-error">{{ error }}</p>
+
+            <button type="submit" class="primary-btn" :disabled="loading">
+              {{ loading ? 'Connexion…' : 'Se connecter' }}
+            </button>
+          </form>
+
+          <div class="auth-divider"><span>ou</span></div>
+
+          <div class="social-grid">
+            <button type="button" class="social-btn social-google" @click="onGoogle">
+              <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Se connecter avec Google
+            </button>
           </div>
+        </template>
 
-          <div class="field">
-            <label for="login-password">Mot de passe</label>
-            <input
-              id="login-password"
-              v-model="password"
-              type="password"
-              placeholder="••••••••"
-              required
-            />
+        <!-- ── Mode mot de passe oublié ── -->
+        <template v-else>
+          <div class="forgot-wrap">
+            <!-- Succès -->
+            <div v-if="forgotSent" class="forgot-success">
+              <div class="forgot-success-icon">✉</div>
+              <h3>Email envoyé !</h3>
+              <p>Vérifie ta boîte mail — le lien est valable <strong>1 heure</strong>.</p>
+              <button class="back-link" @click="backToLogin">← Retour à la connexion</button>
+            </div>
+
+            <!-- Formulaire -->
+            <form v-else @submit.prevent="onForgot" class="auth-form">
+              <div class="forgot-header">
+                <h3 class="forgot-title">Mot de passe oublié</h3>
+                <p class="forgot-sub">Saisis ton email pour recevoir un lien de réinitialisation.</p>
+              </div>
+              <div class="field">
+                <label for="forgot-email">Email</label>
+                <input
+                  id="forgot-email"
+                  v-model="forgotEmail"
+                  type="email"
+                  placeholder="vous@exemple.com"
+                  required
+                />
+              </div>
+              <p v-if="forgotError" class="auth-error">{{ forgotError }}</p>
+              <button type="submit" class="primary-btn" :disabled="forgotLoading">
+                {{ forgotLoading ? 'Envoi…' : 'Envoyer le lien' }}
+              </button>
+              <button type="button" class="back-link" @click="backToLogin">← Retour à la connexion</button>
+            </form>
           </div>
+        </template>
+      </div>
+    </section>
 
-          <button type="submit" class="primary-btn">Se connecter</button>
-        </form>
+    <section class="auth-visual" aria-hidden="true">
+      <div class="visual-badge">
+        <span class="badge-mark"></span>
+        <span>BambuCalc</span>
+      </div>
 
-        <div class="auth-divider"><span>ou</span></div>
+      <div class="visual-copy">
+        <h1>Imaginez vos impressions en 3D</h1>
+        <p>Un espace clair, rapide et premium pour piloter vos devis.</p>
+      </div>
 
-        <div class="social-grid">
-          <button type="button" class="social-btn social-facebook">
-            <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-              />
-            </svg>
-            Se connecter avec Facebook
-          </button>
-          <button type="button" class="social-btn social-google">
-            <svg class="social-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            Se connecter avec Google
-          </button>
-        </div>
+      <div class="visual-illustration">
+        <img src="/login-hero.svg" alt="Clé de connexion" />
       </div>
     </section>
   </div>
@@ -122,7 +150,7 @@ export default comp
 .auth-page {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.94fr);
+  grid-template-columns: minmax(420px, 0.94fr) minmax(0, 1fr);
   padding: 1rem;
   background-image: url('/hero-vagues.svg');
   background-repeat: no-repeat;
@@ -131,9 +159,6 @@ export default comp
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
   position: relative;
   overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 .auth-page::before {
@@ -148,7 +173,7 @@ export default comp
 .auth-visual {
   position: relative;
   overflow: visible;
-  border-radius: 28px 0 0 28px;
+  border-radius: 0 28px 28px 0;
   padding: 2rem 2rem 1.75rem;
   display: flex;
   flex-direction: column;
@@ -166,7 +191,7 @@ export default comp
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.16), transparent 24%),
     radial-gradient(circle at 75% 70%, rgba(46, 154, 171, 0.1), transparent 28%);
-  border-radius: 28px 0 0 28px;
+  border-radius: 0 28px 28px 0;
   pointer-events: none;
 }
 
@@ -174,7 +199,7 @@ export default comp
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 28px 0 0 28px;
+  border-radius: 0 28px 28px 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
   pointer-events: none;
   z-index: 2;
@@ -303,9 +328,9 @@ export default comp
   position: relative;
   background: rgba(255, 255, 255, 0.62);
   backdrop-filter: blur(16px);
-  border-radius: 0 28px 28px 0;
+  border-radius: 28px 0 0 28px;
   padding: 3.25rem 3rem 2rem;
-  box-shadow: -8px 0 20px rgba(29, 18, 43, 0.08);
+  box-shadow: 8px 0 20px rgba(29, 18, 43, 0.08);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -462,6 +487,16 @@ export default comp
   box-shadow: 0 0 0 3px rgba(46, 154, 171, 0.16);
 }
 
+.auth-error {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.4rem;
+  background: rgba(220, 53, 69, 0.08);
+  border: 1px solid rgba(220, 53, 69, 0.25);
+  color: #c0392b;
+  font-size: 0.85rem;
+}
+
 .primary-btn {
   margin-top: 0.4rem;
   width: 100%;
@@ -474,6 +509,12 @@ export default comp
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 10px 18px rgba(25, 108, 133, 0.2);
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.primary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .auth-divider {
@@ -499,7 +540,7 @@ export default comp
 
 .social-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
@@ -549,6 +590,64 @@ export default comp
   background: #222;
 }
 
+/* ── Mot de passe oublié ── */
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.forgot-link {
+  background: none;
+  border: none;
+  color: #2e9cab;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.2s ease;
+}
+.forgot-link:hover { color: #1f7f97; text-decoration: underline; }
+
+.forgot-wrap { margin-top: 2rem; }
+
+.forgot-header { text-align: center; margin-bottom: 1.25rem; }
+.forgot-title { font-size: 1.5rem; font-weight: 800; color: #1b2f39; margin: 0 0 0.4rem; letter-spacing: -0.02em; }
+.forgot-sub   { font-size: 0.92rem; color: #4f6570; margin: 0; }
+
+.back-link {
+  background: none;
+  border: none;
+  color: #718096;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  font-family: inherit;
+  text-align: center;
+  width: 100%;
+  display: block;
+  transition: color 0.2s ease;
+  margin-top: 0.25rem;
+}
+.back-link:hover { color: #2e9cab; }
+
+.forgot-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
+}
+.forgot-success-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+.forgot-success h3 { font-size: 1.3rem; font-weight: 800; color: #1b2f39; margin: 0; }
+.forgot-success p  { font-size: 0.9rem; color: #4f6570; margin: 0; line-height: 1.5; }
+
 @media (max-width: 1100px) {
   .auth-page {
     grid-template-columns: 1fr;
@@ -567,6 +666,16 @@ export default comp
 
   .visual-copy {
     max-width: 24rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 2rem 1rem 1.5rem;
+  }
+
+  .social-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -1,15 +1,24 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Landing from '../views/Landing.vue'
-import Home from '../views/Home.vue'
+import CalculatorStep from '../views/CalculatorStep.vue'
+import Dashboard from '../views/Dashboard.vue'
+import AdminDashboard from '../views/AdminDashboard.vue'
 import Login from '../views/Login.vue'
 import Signup from '../views/Signup.vue'
-import { isAuthenticated } from '../utils/auth'
+import ResetPassword from '../views/ResetPassword.vue'
+import PrivacyPolicy from '../views/PrivacyPolicy.vue'
+import { supabase } from '../lib/supabase'
 
 const routes = [
   { path: '/', name: 'landing', component: Landing, meta: { layout: 'landing' } },
-  { path: '/calculator', name: 'home', component: Home, meta: { requiresAuth: true } },
+  { path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
+  { path: '/admin', name: 'admin', component: AdminDashboard, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/calculator', redirect: '/calculator/1' },
+  { path: '/calculator/:step', name: 'calculator-step', component: CalculatorStep, meta: { requiresAuth: true } },
   { path: '/login', name: 'login', component: Login },
   { path: '/signup', name: 'signup', component: Signup },
+  { path: '/reset-password', name: 'reset-password', component: ResetPassword },
+  { path: '/privacy', name: 'privacy', component: PrivacyPolicy },
 ]
 
 const router = createRouter({
@@ -17,17 +26,22 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, from, next) => {
-  const isAuth = isAuthenticated()
+router.beforeEach(async (to, from, next) => {
+  const { data } = await supabase.auth.getSession()
+  const isAuth = !!data.session
 
-  // Redirection si authentifié et essaie d'accéder aux pages d'auth
   if (isAuth && (to.name === 'login' || to.name === 'signup')) {
-    return next({ name: 'home' })
+    const { data: isAdmin } = await supabase.rpc('is_admin')
+    return next({ path: isAdmin ? '/admin' : '/dashboard' })
   }
 
-  // Redirection si non authentifié et essaie d'accéder à une page protégée
-  if (to.meta && to.meta.requiresAuth && !isAuth) {
+  if (to.meta?.requiresAuth && !isAuth) {
     return next({ name: 'login' })
+  }
+
+  if (to.meta?.requiresAdmin) {
+    const { data: isAdmin } = await supabase.rpc('is_admin')
+    if (!isAdmin) return next({ name: 'dashboard' })
   }
 
   return next()

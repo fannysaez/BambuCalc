@@ -1,0 +1,129 @@
+import { defineStore } from 'pinia'
+
+function genQuoteNumber() {
+  const d = new Date()
+  const yy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const rand = String(Math.floor(Math.random() * 9999)).padStart(4, '0')
+  return `DEV-${yy}${mm}${dd}-${rand}`
+}
+
+export const useCalculatorStore = defineStore('calculator', {
+  state: () => ({
+    // Devis
+    quoteNumber: genQuoteNumber(),
+    quoteDate: new Date().toISOString().split('T')[0],
+    quoteValidityDays: 30,
+
+    // Client — identité
+    clientType: 'particulier',   // particulier | auto-entrepreneur | entreprise | association
+    clientCivility: 'M.',        // M. | Mme (affiché pour particulier)
+    clientFirstName: '',
+    clientLastName: '',
+    clientName: '',              // raison sociale (entreprise/asso) ou nom complet
+    clientContactName: '',       // nom du contact (entreprise/asso)
+    clientEmail: '',
+    clientPhone: '',
+
+    // Client — adresse
+    clientAddress: '',
+    clientPostalCode: '',
+    clientCity: '',
+    clientCountry: 'France',
+
+    // Client — facturation
+    clientSiret: '',
+    clientVatNumber: '',
+
+    // Projet
+    projectName: '',
+    quantity: 1,
+    printProfile: 'normal',
+    printerModel: 'p2s-combo',
+    nozzleSize: '0.4',
+
+    // Conditions devis
+    paymentMethod: 'virement',   // virement | chèque | cb | espèces
+    depositPercent: 0,
+    quoteNotes: '',
+
+    // Matière
+    material: 'PLA+',
+    costPerKg: 16.99,
+    weight: 0,
+    lossPercent: 5,
+    colorCount: 1,
+    purgeWaste: 0,
+
+    // Temps
+    printHours: 0,
+    printMinutes: 0,
+    prepTime: 15,
+    postTime: 0,
+
+    // Coûts équipement
+    electricityRate: 0.23,
+    printerCost: 1800,
+    printerLifeHours: 4000,
+    maintenanceRate: 0.10,
+    hourlyRate: 20,
+
+    // Autres
+    packagingCost: 0,
+    taxRate: 20,
+    selectedPricing: 'standard',
+    customMargin: 50,
+  }),
+
+  getters: {
+    // Nom affiché selon le type de client
+    displayClientName(state) {
+      if (state.clientType === 'particulier') {
+        const parts = [state.clientCivility, state.clientFirstName, state.clientLastName].filter(Boolean)
+        return parts.join(' ') || state.clientName || ''
+      }
+      return state.clientName || ''
+    },
+
+    calculatedCosts(state) {
+      const r = (v) => Math.round(v * 100) / 100
+
+      const lossWeight   = (Number(state.weight) || 0) * (Number(state.lossPercent) || 0) / 100
+      const purgeWeight  = Number(state.colorCount) > 1 ? (Number(state.purgeWaste) || 0) : 0
+      const totalWeight  = (Number(state.weight) || 0) + lossWeight + purgeWeight
+      const materialCost = (totalWeight / 1000) * (Number(state.costPerKg) || 0)
+
+      const printH       = (Number(state.printHours) || 0) + (Number(state.printMinutes) || 0) / 60
+      const electricity  = printH * 0.35 * (Number(state.electricityRate) || 0)
+      const amortization = (Number(state.printerCost) || 0) / (Number(state.printerLifeHours) || 4000) * printH
+      const maintenance  = (Number(state.maintenanceRate) || 0) * printH
+      const equipmentCost = electricity + amortization + maintenance
+
+      const workMinutes  = (Number(state.prepTime) || 0) + (Number(state.postTime) || 0)
+      const workCost     = (workMinutes / 60) * (Number(state.hourlyRate) || 0)
+
+      const packagingCost = Number(state.packagingCost) || 0
+      const subtotal      = materialCost + equipmentCost + workCost + packagingCost
+      const tax           = (subtotal * (Number(state.taxRate) || 0)) / 100
+      const totalCost     = subtotal + tax
+      const qty           = Math.max(1, Number(state.quantity) || 1)
+
+      return {
+        quantity:      qty,
+        totalWeight:   r(totalWeight),
+        materialCost:  r(materialCost),
+        electricity:   r(electricity),
+        amortization:  r(amortization),
+        maintenance:   r(maintenance),
+        equipmentCost: r(equipmentCost),
+        workCost:      r(workCost),
+        packagingCost: r(packagingCost),
+        subtotal:      r(subtotal),
+        tax:           r(tax),
+        totalCost:     r(totalCost),
+        costPerUnit:   r(totalCost / qty),
+      }
+    },
+  },
+})

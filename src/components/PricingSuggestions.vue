@@ -1,194 +1,272 @@
 <template>
-  <div :class="pStyles.section">
-    <h2 :class="pStyles.sectionTitle">
-      <span :class="pStyles.titleIcon">✧</span>
-      <span>Tarification Suggérée</span>
-      <span
-        :class="pStyles.infoBadge"
-        title="Remise volume: application d'un pourcentage sur le prix unitaire après marge"
-        >ℹ︎</span
-      >
-    </h2>
+  <div class="pricing-wrap">
 
-    <div :class="pStyles.pricingGrid">
-      <div
-        v-for="pricing in pricingOptions"
-        :key="pricing.id"
-        :class="[pStyles.pricingCard, selectedPricing === pricing.id && pStyles.selected]"
-        @click="$emit('update:selectedPricing', pricing.id)"
+    <!-- Options de tarification -->
+    <div class="option-list">
+      <button
+        v-for="opt in pricingOptions"
+        :key="opt.id"
+        :class="['option-row', selectedPricing === opt.id && 'option-row--active']"
+        @click="$emit('update:selectedPricing', opt.id)"
+        type="button"
       >
-        <div :class="pStyles.pricingName">{{ pricing.name }}</div>
-        <div :class="pStyles.margin">+{{ pricing.margin }}% Marge</div>
-        <div :class="pStyles.priceLabel">HT</div>
-        <div :class="pStyles.price">
-          <span v-if="hasUnitCost">{{ formatCurrency(unitPrice(pricing)) }} / unité</span>
-          <span v-else>{{ formatCurrency(calculatePrice(baseCost, pricing.margin)) }}</span>
+        <span class="opt-radio">
+          <span v-if="selectedPricing === opt.id" class="opt-radio-dot" />
+        </span>
+        <div class="opt-body">
+          <span class="opt-name">{{ opt.name }}</span>
+          <span class="opt-desc">{{ opt.desc }}</span>
         </div>
-        <div :class="pStyles.priceWithTax">
-          <div v-if="hasUnitCost">
-            <div>{{ formatCurrency(unitPriceWithTax(pricing)) }} TTC / unité</div>
-            <div :class="pStyles.unitSummary">
-              {{ seriesQuantity }} unités → {{ formatCurrency(unitTotalWithTax(pricing)) }} TTC
-            </div>
-            <div v-if="volumeDiscount > 0" :class="pStyles.savingsLine">
-              <strong>-{{ volumeDiscount }}% remise volume</strong>
-              — économie par unité: {{ formatCurrency(unitSavings(pricing)) }} TTC (total:
-              {{ formatCurrency(unitSavings(pricing) * seriesQuantity) }})
-            </div>
-          </div>
-          <div v-else>
-            {{ formatCurrency(calculatePriceWithTax(baseCost, pricing.margin)) }} TTC
-          </div>
-        </div>
-      </div>
+        <span class="opt-tag">+{{ opt.margin }}%</span>
+        <span class="opt-price">{{ fmt(priceWithTax(opt.margin)) }}</span>
+        <span class="opt-ttc">TTC</span>
+      </button>
     </div>
 
-    <div :class="pStyles.customSection">
-      <div :class="pStyles.customHeader">
-        <div :class="pStyles.customTitleRow">
-          <span :class="pStyles.customTitleIcon">⚙</span>
-          <span :class="pStyles.customLabel">Personnalisé</span>
-        </div>
-        <div :class="pStyles.customAmount">
-          {{ formatCurrency(calculatePrice(baseCost, customMargin)) }}
-        </div>
+    <!-- Marge personnalisée -->
+    <div class="custom-block">
+      <div class="custom-top">
+        <span class="custom-label">Personnalisé</span>
+        <span class="custom-price">{{ fmt(priceWithTax(customMargin)) }} TTC</span>
       </div>
-
-      <div :class="pStyles.customSliderRow">
+      <div class="custom-row">
         <input
-          :class="pStyles.customSlider"
+          class="slider"
           type="range"
           :value="customMargin"
           @input="$emit('update:customMargin', Number($event.target.value))"
-          min="0"
-          max="100"
-          step="1"
+          min="0" max="200" step="1"
         />
-        <div :class="pStyles.customPctBox">
+        <div class="pct-box">
           <input
             type="number"
             :value="customMargin"
             @input="$emit('update:customMargin', Number($event.target.value))"
-            min="0"
-            max="100"
-            step="1"
+            min="0" max="200" step="1"
           />
           <span>%</span>
         </div>
       </div>
-
-      <div :class="pStyles.customFooter">
-        <span>+{{ customMargin }}% Marge de profit</span>
-        <span :class="pStyles.customResult"
-          >{{ formatCurrency(calculatePriceWithTax(baseCost, customMargin)) }} TTC</span
-        >
-      </div>
     </div>
 
-    <button :class="pStyles.saveButton" @click.prevent="saveAndDownload">
-      💾 Enregistrer le devis
-    </button>
   </div>
 </template>
 
 <script>
-import pStyles from '../styles/PricingSuggestions.module.css'
-import auth from '../utils/auth'
-
 export default {
   name: 'PricingSuggestions',
   props: {
-    baseCost: { type: Number, default: 0 },
-    baseCostPerUnit: { type: Number, default: 0 },
+    baseCost:       { type: Number, default: 0 },
+    baseCostPerUnit:{ type: Number, default: 0 },
+    taxRate:        { type: Number, default: 20 },
+    selectedPricing:{ type: String, default: 'standard' },
+    customMargin:   { type: Number, default: 50 },
     seriesQuantity: { type: Number, default: 1 },
     volumeDiscount: { type: Number, default: 0 },
-    taxRate: { type: Number, default: 20 },
-    selectedPricing: { type: String, default: 'standard' },
-    customMargin: { type: Number, default: 50 },
   },
+  emits: ['update:selectedPricing', 'update:customMargin'],
   data() {
     return {
-      pStyles,
       pricingOptions: [
-        { id: 'competitive', name: 'Compétitif', margin: 25 },
-        { id: 'standard', name: 'Standard', margin: 40 },
-        { id: 'premium', name: 'Premium', margin: 60 },
-        { id: 'luxury', name: 'Luxe', margin: 80 },
+        { id: 'ami',   name: 'Ami / Asso',     margin: 15, desc: 'Proches, associations' },
+        { id: 'standard', name: 'Particulier', margin: 40, desc: 'Client individuel'     },
+        { id: 'pro',   name: 'Professionnel',  margin: 65, desc: 'Entreprise, B2B'       },
       ],
     }
   },
-  computed: {
-    hasUnitCost() {
-      return this.baseCostPerUnit && this.baseCostPerUnit > 0
-    },
-  },
   methods: {
-    calculatePrice(baseCost, margin) {
-      return baseCost + (baseCost * margin) / 100
+    priceWithTax(margin) {
+      const base = this.baseCostPerUnit > 0 ? this.baseCostPerUnit : this.baseCost
+      const withMargin = base + (base * margin) / 100
+      return Math.round(withMargin * (1 + this.taxRate / 100) * 100) / 100
     },
-    calculatePriceWithTax(baseCost, margin) {
-      const price = this.calculatePrice(baseCost, margin)
-      return Math.round(price * (1 + this.taxRate / 100) * 100) / 100
-    },
-    unitPrice(pricing) {
-      const withMargin = this.calculatePrice(this.baseCostPerUnit, pricing.margin)
-      const discountMultiplier = Math.max(0, 1 - (Number(this.volumeDiscount) || 0) / 100)
-      return Math.round(withMargin * discountMultiplier * 100) / 100
-    },
-    unitPriceWithTax(pricing) {
-      return Math.round(this.unitPrice(pricing) * (1 + this.taxRate / 100) * 100) / 100
-    },
-    unitTotalWithTax(pricing) {
-      return Math.round(this.unitPriceWithTax(pricing) * this.seriesQuantity * 100) / 100
-    },
-    undiscountedUnitWithTax(pricing) {
-      const unit = this.calculatePrice(this.baseCostPerUnit, pricing.margin)
-      return Math.round(unit * (1 + this.taxRate / 100) * 100) / 100
-    },
-    unitSavings(pricing) {
-      return (
-        Math.round((this.undiscountedUnitWithTax(pricing) - this.unitPriceWithTax(pricing)) * 100) /
-        100
-      )
-    },
-    formatCurrency(value) {
-      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
-    },
-    saveAndDownload() {
-      if (!auth.isAuthenticated()) {
-        this.$router.push({ name: 'login' })
-        return
-      }
-
-      const quote = {
-        createdAt: new Date().toISOString(),
-        baseCost: this.baseCost,
-        costPerUnit: this.baseCostPerUnit,
-        quantity: this.seriesQuantity,
-        selectedPricing: this.selectedPricing,
-        customMargin: this.customMargin,
-      }
-
-      const saved = auth.saveQuote(quote)
-      const win = window.open('', '_blank')
-      const jsonStr = JSON.stringify(saved, null, 2)
-      const html =
-        '<html><head><title>Devis ' +
-        saved.id +
-        '</title></head><body>' +
-        "<h1>Devis d'impression 3D</h1>" +
-        '<p>Référence: ' +
-        saved.id +
-        '</p>' +
-        '<pre>' +
-        jsonStr +
-        '</pre>' +
-        '</body></html>'
-      win.document.write(html)
-      win.document.close()
-      setTimeout(() => win.print(), 500)
+    fmt(v) {
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v)
     },
   },
-  emits: ['update:selectedPricing', 'update:customMargin'],
 }
 </script>
+
+<style scoped>
+.pricing-wrap {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Liste d'options ── */
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.18s ease;
+}
+
+.option-row:hover {
+  border-color: #2e9cab;
+  background: #f8fffe;
+}
+
+.option-row--active {
+  border-color: #2e9cab;
+  background: #e8f7f9;
+}
+
+.opt-radio {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 2px solid #cbd5e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.18s ease;
+}
+
+.option-row--active .opt-radio {
+  border-color: #2e9cab;
+}
+
+.opt-radio-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #2e9cab;
+}
+
+.opt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.opt-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1b2f39;
+}
+
+.opt-desc {
+  font-size: 0.7rem;
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+.opt-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2e9cab;
+  background: rgba(46,156,171,0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.opt-price {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1b2f39;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.opt-ttc {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #a0aec0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Marge personnalisée ── */
+.custom-block {
+  padding: 1rem;
+  border-radius: 12px;
+  background: #f7f9fc;
+  border: 1.5px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.custom-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.custom-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #4a5568;
+}
+
+.custom-price {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #2e9cab;
+  white-space: nowrap;
+}
+
+.custom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.slider {
+  flex: 1;
+  accent-color: #2e9cab;
+}
+
+.pct-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  background: #fff;
+}
+
+.pct-box input {
+  width: 3rem;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  background: transparent;
+  font-family: inherit;
+}
+
+.pct-box span {
+  font-size: 0.85rem;
+  color: #718096;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .pricing-wrap { padding: 1rem; }
+  .opt-name { min-width: 70px; }
+}
+</style>
