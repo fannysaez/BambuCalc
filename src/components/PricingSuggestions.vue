@@ -1,52 +1,70 @@
 <template>
   <div class="pricing-wrap">
 
-    <!-- Options de tarification -->
-    <div class="option-list">
-      <button
-        v-for="opt in pricingOptions"
-        :key="opt.id"
-        :class="['option-row', selectedPricing === opt.id && 'option-row--active']"
-        @click="$emit('update:selectedPricing', opt.id)"
-        type="button"
-      >
-        <span class="opt-radio">
-          <span v-if="selectedPricing === opt.id" class="opt-radio-dot" />
-        </span>
-        <div class="opt-body">
-          <span class="opt-name">{{ opt.name }}</span>
-          <span class="opt-desc">{{ opt.desc }}</span>
-        </div>
-        <span class="opt-tag">+{{ opt.margin }}%</span>
-        <span class="opt-price">{{ fmt(priceWithTax(opt.margin)) }}</span>
-        <span class="opt-ttc">TTC</span>
-      </button>
+    <!-- Message client -->
+    <div class="info-card">
+      <span class="info-icon">🏷️</span>
+      <div>
+        <p class="info-title">Tarification</p>
+        <p class="info-sub">Le tarif final sera déterminé par votre prestataire selon votre profil client et les coûts de fabrication.</p>
+      </div>
     </div>
 
-    <!-- Marge personnalisée -->
-    <div class="custom-block">
-      <div class="custom-top">
-        <span class="custom-label">Personnalisé</span>
-        <span class="custom-price">{{ fmt(priceWithTax(customMargin)) }} TTC</span>
+    <button class="toggle-link" @click="showAdvanced = !showAdvanced">
+      {{ showAdvanced ? '− Options avancées' : '+ Options avancées' }}
+      <span class="advanced-hint">(réservé au prestataire)</span>
+    </button>
+
+    <div v-if="showAdvanced" class="advanced-block">
+
+      <!-- Options de tarification -->
+      <div class="option-list">
+        <button
+          v-for="opt in pricingOptions"
+          :key="opt.id"
+          :class="['option-row', selectedPricing === opt.id && 'option-row--active']"
+          @click="$emit('update:selectedPricing', opt.id)"
+          type="button"
+        >
+          <span class="opt-radio">
+            <span v-if="selectedPricing === opt.id" class="opt-radio-dot" />
+          </span>
+          <div class="opt-body">
+            <span class="opt-name">{{ opt.name }}</span>
+            <span class="opt-desc">{{ opt.desc }}</span>
+          </div>
+          <span class="opt-tag">+{{ opt.margin }}%</span>
+          <span class="opt-price">{{ fmt(priceWithTax(opt.margin)) }}</span>
+          <span class="opt-ttc">TTC</span>
+        </button>
       </div>
-      <div class="custom-row">
-        <input
-          class="slider"
-          type="range"
-          :value="customMargin"
-          @input="$emit('update:customMargin', Number($event.target.value))"
-          min="0" max="200" step="1"
-        />
-        <div class="pct-box">
+
+      <!-- Marge personnalisée -->
+      <div class="custom-block">
+        <div class="custom-top">
+          <span class="custom-label">Personnalisé</span>
+          <span class="custom-price">{{ fmt(priceWithTax(customMargin)) }} TTC</span>
+        </div>
+        <div class="custom-row">
           <input
-            type="number"
+            class="slider"
+            type="range"
             :value="customMargin"
             @input="$emit('update:customMargin', Number($event.target.value))"
             min="0" max="200" step="1"
           />
-          <span>%</span>
+          <div class="pct-box">
+            <input
+              type="number"
+              :value="customMargin"
+              @input="$emit('update:customMargin', Number($event.target.value))"
+              min="0" max="200" step="1"
+            />
+            <span>%</span>
+          </div>
         </div>
       </div>
+
     </div>
 
   </div>
@@ -67,10 +85,11 @@ export default {
   emits: ['update:selectedPricing', 'update:customMargin'],
   data() {
     return {
+      showAdvanced: false,
       pricingOptions: [
-        { id: 'ami',   name: 'Ami / Asso',     margin: 15, desc: 'Proches, associations' },
-        { id: 'standard', name: 'Particulier', margin: 40, desc: 'Client individuel'     },
-        { id: 'pro',   name: 'Professionnel',  margin: 65, desc: 'Entreprise, B2B'       },
+        { id: 'ami',      name: 'Ami / Asso',    margin: 15, desc: 'Proches, associations' },
+        { id: 'standard', name: 'Particulier',   margin: 40, desc: 'Client individuel'     },
+        { id: 'pro',      name: 'Professionnel', margin: 65, desc: 'Entreprise, B2B'       },
       ],
     }
   },
@@ -90,6 +109,43 @@ export default {
 <style scoped>
 .pricing-wrap {
   padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  background: #f0fbfc;
+  border: 1.5px solid #b2e8ef;
+  border-radius: 14px;
+}
+.info-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 0.05rem; }
+.info-title { font-size: 0.88rem; font-weight: 700; color: #1b2f39; margin: 0 0 0.2rem; }
+.info-sub { font-size: 0.78rem; color: #4a7f90; margin: 0; line-height: 1.5; }
+
+.toggle-link {
+  background: none;
+  border: none;
+  color: #a0aec0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: color 0.2s ease;
+}
+.toggle-link:hover { color: #2e9cab; }
+.advanced-hint { font-weight: 400; font-size: 0.74rem; }
+
+.advanced-block {
   display: flex;
   flex-direction: column;
   gap: 1rem;

@@ -1,65 +1,84 @@
 <template>
   <div :class="formStyles.section">
 
-    <!-- Durée d'impression (depuis Bambu Studio) -->
-    <div class="block-label">Durée d'impression <span class="hint">— affiché dans Bambu Studio</span></div>
-    <div class="grid-2" style="margin-bottom:0.75rem">
-      <div :class="formStyles.formGroup">
-        <label :class="formStyles.label" for="printHours">Heures</label>
-        <div class="input-unit-wrap">
-          <input id="printHours" :class="formStyles.input" type="number"
-            :value="printHours" @input="$emit('update:printHours', parseFloat($event.target.value))"
-            min="0" />
-          <span class="unit">h</span>
-        </div>
-      </div>
-      <div :class="formStyles.formGroup">
-        <label :class="formStyles.label" for="printMinutes">Minutes</label>
-        <div class="input-unit-wrap">
-          <input id="printMinutes" :class="formStyles.input" type="number"
-            :value="printMinutes" @input="$emit('update:printMinutes', parseFloat($event.target.value))"
-            min="0" max="59" />
-          <span class="unit">min</span>
-        </div>
+    <!-- Message client -->
+    <div class="info-card">
+      <span class="info-icon">⏱</span>
+      <div>
+        <p class="info-title">Durée et temps de travail</p>
+        <p class="info-sub">Ces informations seront renseignées par votre prestataire pour calculer le prix final.</p>
       </div>
     </div>
 
-    <div class="sep" />
+    <!-- Options avancées (prestataire) -->
+    <button class="toggle-link" @click="showAdvanced = !showAdvanced">
+      {{ showAdvanced ? '− Options avancées' : '+ Options avancées' }}
+      <span class="advanced-hint">(réservé au prestataire)</span>
+    </button>
 
-    <!-- Temps de travail manuel -->
-    <div class="block-label">Temps de travail <span class="hint">— facturé à votre taux horaire</span></div>
-    <div class="grid-2">
-      <div :class="formStyles.formGroup">
-        <label :class="formStyles.label" for="prepTime">Préparation</label>
-        <div class="input-unit-wrap">
-          <input id="prepTime" :class="formStyles.input" type="number"
-            :value="prepTime" @input="$emit('update:prepTime', parseFloat($event.target.value))"
-            step="5" min="0" />
-          <span class="unit">min</span>
-        </div>
-        <p :class="formStyles.helpText">Slicing, mise en plateau</p>
-      </div>
-      <div :class="formStyles.formGroup">
-        <label :class="formStyles.label" for="postTime">Post-traitement</label>
-        <div class="input-unit-wrap">
-          <input id="postTime" :class="formStyles.input" type="number"
-            :value="postTime" @input="$emit('update:postTime', parseFloat($event.target.value))"
-            step="5" min="0" />
-          <span class="unit">min</span>
-        </div>
-        <p :class="formStyles.helpText">Supports, ponçage, peinture…</p>
-      </div>
-    </div>
+    <div v-if="showAdvanced" class="advanced-block">
 
-    <!-- Taux horaire -->
-    <div class="rate-row">
-      <label :class="formStyles.label" for="hourlyRate">Taux horaire main-d'œuvre</label>
-      <div class="input-unit-wrap" style="max-width:160px">
-        <input id="hourlyRate" :class="formStyles.input" type="number"
-          :value="hourlyRate" @input="$emit('update:hourlyRate', parseFloat($event.target.value))"
-          step="1" min="0" />
-        <span class="unit">€/h</span>
+      <!-- Durée d'impression -->
+      <div class="block-label">Durée d'impression <span class="hint">— affiché dans Bambu Studio</span></div>
+      <div class="grid-2" style="margin-bottom:0.75rem">
+        <div :class="formStyles.formGroup">
+          <label :class="formStyles.label" for="printHours">Heures</label>
+          <div class="input-unit-wrap">
+            <input id="printHours" :class="formStyles.input" type="number"
+              :value="printHours" @input="$emit('update:printHours', parseFloat($event.target.value))"
+              min="0" />
+            <span class="unit">h</span>
+          </div>
+        </div>
+        <div :class="formStyles.formGroup">
+          <label :class="formStyles.label" for="printMinutes">Minutes</label>
+          <div class="input-unit-wrap">
+            <input id="printMinutes" :class="formStyles.input" type="number"
+              :value="printMinutes" @input="$emit('update:printMinutes', parseFloat($event.target.value))"
+              min="0" max="59" />
+            <span class="unit">min</span>
+          </div>
+        </div>
       </div>
+
+      <div class="sep" />
+
+      <!-- Temps de travail -->
+      <div class="block-label">Temps de travail <span class="hint">— facturé à votre taux horaire</span></div>
+      <div class="grid-2">
+        <div :class="formStyles.formGroup">
+          <label :class="formStyles.label" for="prepTime">Préparation</label>
+          <div class="input-unit-wrap">
+            <input id="prepTime" :class="formStyles.input" type="number"
+              :value="prepTime" @input="$emit('update:prepTime', parseFloat($event.target.value))"
+              step="5" min="0" />
+            <span class="unit">min</span>
+          </div>
+          <p :class="formStyles.helpText">Slicing, mise en plateau</p>
+        </div>
+        <div :class="formStyles.formGroup">
+          <label :class="formStyles.label" for="postTime">Post-traitement</label>
+          <div class="input-unit-wrap">
+            <input id="postTime" :class="formStyles.input" type="number"
+              :value="postTime" @input="$emit('update:postTime', parseFloat($event.target.value))"
+              step="5" min="0" />
+            <span class="unit">min</span>
+          </div>
+          <p :class="formStyles.helpText">Supports, ponçage, peinture…</p>
+        </div>
+      </div>
+
+      <!-- Taux horaire -->
+      <div class="rate-row">
+        <label :class="formStyles.label" for="hourlyRate">Taux horaire main-d'œuvre</label>
+        <div class="input-unit-wrap" style="max-width:160px">
+          <input id="hourlyRate" :class="formStyles.input" type="number"
+            :value="hourlyRate" @input="$emit('update:hourlyRate', parseFloat($event.target.value))"
+            step="1" min="0" />
+          <span class="unit">€/h</span>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -71,18 +90,63 @@ import formStyles from '../styles/Form.module.css'
 export default {
   name: 'PrintingTime',
   props: {
-    printHours:  { type: Number, default: 0 },
-    printMinutes:{ type: Number, default: 0 },
-    prepTime:    { type: Number, default: 15 },
-    postTime:    { type: Number, default: 0 },
-    hourlyRate:  { type: Number, default: 20 },
+    printHours:   { type: Number, default: 0 },
+    printMinutes: { type: Number, default: 0 },
+    prepTime:     { type: Number, default: 15 },
+    postTime:     { type: Number, default: 0 },
+    hourlyRate:   { type: Number, default: 20 },
   },
   emits: ['update:printHours', 'update:printMinutes', 'update:prepTime', 'update:postTime', 'update:hourlyRate'],
-  data() { return { formStyles } },
+  data() {
+    return {
+      formStyles,
+      showAdvanced: false,
+    }
+  },
 }
 </script>
 
 <style scoped>
+.info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  background: #f0fbfc;
+  border: 1.5px solid #b2e8ef;
+  border-radius: 14px;
+  margin-bottom: 0.75rem;
+}
+.info-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 0.05rem; }
+.info-title { font-size: 0.88rem; font-weight: 700; color: #1b2f39; margin: 0 0 0.2rem; }
+.info-sub { font-size: 0.78rem; color: #4a7f90; margin: 0; line-height: 1.5; }
+
+.toggle-link {
+  background: none;
+  border: none;
+  color: #a0aec0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: color 0.2s ease;
+}
+.toggle-link:hover { color: #2e9cab; }
+.advanced-hint { font-weight: 400; font-size: 0.74rem; }
+
+.advanced-block {
+  margin-top: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: #f7f9fc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
 
 .block-label {
@@ -95,7 +159,7 @@ export default {
 }
 .hint { font-size: 0.68rem; font-weight: 400; color: #a0aec0; text-transform: none; letter-spacing: 0; }
 
-.sep { height: 1px; background: #e2e8f0; margin: 0.5rem 0; }
+.sep { height: 1px; background: #e2e8f0; margin: 0.65rem 0; }
 
 .input-unit-wrap { display: flex; align-items: center; gap: 0.5rem; }
 .input-unit-wrap input { flex: 1; }

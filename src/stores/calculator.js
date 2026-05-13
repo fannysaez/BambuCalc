@@ -74,6 +74,13 @@ export const useCalculatorStore = defineStore('calculator', {
     taxRate: 20,
     selectedPricing: 'standard',
     customMargin: 50,
+
+    // Image de référence
+    referenceImage: null,
+    referenceImageUrl: '',
+
+    // Mode édition admin (ID du devis à mettre à jour)
+    editingQuoteId: null,
   }),
 
   getters: {

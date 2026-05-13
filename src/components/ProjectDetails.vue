@@ -195,6 +195,29 @@
       </div>
     </div>
 
+    <!-- Image de référence -->
+    <div :class="formStyles.formGroup">
+      <label :class="formStyles.label">
+        Image de référence
+        <span class="optional">optionnel</span>
+      </label>
+      <div
+        class="img-upload-area"
+        :class="{ 'img-upload-area--has': referenceImageUrl }"
+        @click="$refs.imgInput.click()"
+        @dragover.prevent
+        @drop.prevent="handleDrop"
+      >
+        <img v-if="referenceImageUrl" :src="referenceImageUrl" class="img-preview" alt="Aperçu" />
+        <div v-else class="img-placeholder">
+          <span class="img-ph-icon">📎</span>
+          <span class="img-ph-text">Cliquez ou glissez une image (JPG, PNG, WEBP)</span>
+        </div>
+        <button v-if="referenceImageUrl" class="img-remove" type="button" @click.stop="removeImage">×</button>
+      </div>
+      <input ref="imgInput" type="file" accept="image/*" style="display:none" @change="handleImageUpload" />
+    </div>
+
     <div class="sep" />
 
     <!-- ── Section conditions ── -->
@@ -275,6 +298,9 @@ export default {
     printerModel:      { type: String,  default: 'p2s-combo' },
     nozzleSize:        { type: String,  default: '0.4' },
 
+    referenceImage:    { type: Object,  default: null },
+    referenceImageUrl: { type: String,  default: '' },
+
     paymentMethod:     { type: String,  default: 'virement' },
     depositPercent:    { type: Number,  default: 0 },
     quoteNotes:        { type: String,  default: '' },
@@ -290,9 +316,29 @@ export default {
     'update:clientSiret', 'update:clientVatNumber',
     'update:projectName', 'update:quantity',
     'update:printProfile', 'update:printerModel', 'update:nozzleSize',
+    'update:referenceImage', 'update:referenceImageUrl',
     'update:paymentMethod', 'update:depositPercent', 'update:quoteNotes',
   ],
   data() { return { formStyles } },
+  methods: {
+    handleImageUpload(e) {
+      const file = e.target.files[0]
+      if (!file) return
+      this.$emit('update:referenceImage', file)
+      this.$emit('update:referenceImageUrl', URL.createObjectURL(file))
+    },
+    handleDrop(e) {
+      const file = e.dataTransfer.files[0]
+      if (!file || !file.type.startsWith('image/')) return
+      this.$emit('update:referenceImage', file)
+      this.$emit('update:referenceImageUrl', URL.createObjectURL(file))
+    },
+    removeImage() {
+      this.$emit('update:referenceImage', null)
+      this.$emit('update:referenceImageUrl', '')
+      this.$refs.imgInput.value = ''
+    },
+  },
 }
 </script>
 
@@ -362,4 +408,58 @@ export default {
   margin-left: 0.25rem;
   vertical-align: middle;
 }
+
+/* ── Image upload ── */
+.img-upload-area {
+  position: relative;
+  border: 1.5px dashed #cbd5e0;
+  border-radius: 12px;
+  background: #f7f9fc;
+  cursor: pointer;
+  overflow: hidden;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.img-upload-area:hover { border-color: #2e9cab; background: #f0fbfc; }
+.img-upload-area--has { border-style: solid; }
+
+.img-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem;
+}
+.img-ph-icon { font-size: 1.4rem; }
+.img-ph-text { font-size: 0.75rem; color: #a0aec0; font-weight: 500; text-align: center; }
+
+.img-preview {
+  width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+  display: block;
+}
+
+.img-remove {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.img-remove:hover { background: rgba(231,76,60,0.85); }
 </style>

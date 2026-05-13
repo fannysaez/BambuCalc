@@ -54,6 +54,8 @@
           v-model:printProfile="store.printProfile"
           v-model:printerModel="store.printerModel"
           v-model:nozzleSize="store.nozzleSize"
+          v-model:referenceImage="store.referenceImage"
+          v-model:referenceImageUrl="store.referenceImageUrl"
           v-model:paymentMethod="store.paymentMethod"
           v-model:depositPercent="store.depositPercent"
           v-model:quoteNotes="store.quoteNotes"
@@ -96,6 +98,7 @@
         <CostBreakdown
           v-if="currentStep === 5"
           :costs="store.calculatedCosts"
+          :isAdmin="isAdmin"
         />
       </div>
 
@@ -124,8 +127,8 @@
           @click="saveQuote"
         >
           <span v-if="saving">Sauvegarde…</span>
-          <span v-else-if="saveStatus === 'ok'">✓ Devis sauvegardé !</span>
-          <span v-else>Sauvegarder le devis</span>
+          <span v-else-if="saveStatus === 'ok'">✓ {{ isEditMode ? 'Devis mis à jour !' : (isAdmin ? 'Devis sauvegardé !' : 'Demande envoyée !') }}</span>
+          <span v-else>{{ isEditMode ? 'Mettre à jour le devis' : (isAdmin ? 'Sauvegarder le devis' : 'Envoyer ma demande') }}</span>
         </button>
       </div>
     </div>
@@ -135,7 +138,7 @@
 
 <script>
 import { useCalculatorStore } from '../stores/calculator'
-import { saveQuote as saveQuoteToDb } from '../utils/auth'
+import { saveQuote as saveQuoteToDb, updateQuote, checkIsAdmin } from '../utils/auth'
 import { supabase } from '../lib/supabase'
 import ProjectDetails from '../components/ProjectDetails.vue'
 import FilamentSection from '../components/FilamentSection.vue'
@@ -151,8 +154,12 @@ export default {
   setup() {
     return { store: useCalculatorStore() }
   },
+  async created() {
+    this.isAdmin = await checkIsAdmin()
+  },
   data() {
     return {
+      isAdmin: false,
       saving: false,
       saveStatus: null,
       steps: [
@@ -167,6 +174,7 @@ export default {
   computed: {
     currentStep() { return Number(this.$route.params.step) || 1 },
     currentStepDef() { return this.steps[this.currentStep - 1] || this.steps[0] },
+    isEditMode() { return !!(this.store.editingQuoteId || this.$route.query.editId) },
   },
   methods: {
     validate() {
@@ -183,14 +191,10 @@ export default {
           return null
         }
         case 2:
-          if (!s.weight || s.weight <= 0)
-            return 'Renseigne le poids de la pièce (en grammes).'
           if (!s.costPerKg || s.costPerKg <= 0)
             return 'Le coût du filament au kg est obligatoire.'
           return null
         case 3:
-          if ((!s.printHours || s.printHours <= 0) && (!s.printMinutes || s.printMinutes <= 0))
-            return "Indique la durée d'impression (heures et/ou minutes)."
           return null
         default:
           return null
@@ -222,14 +226,26 @@ export default {
         const displayName = s.clientType === 'particulier'
           ? [s.clientCivility, s.clientFirstName, s.clientLastName].filter(Boolean).join(' ')
           : s.clientName
-        const savedQuote = await saveQuoteToDb({
-          // Devis
+
+        let referenceImageUrl = ''
+        if (s.referenceImage) {
+          const ext = s.referenceImage.name.split('.').pop()
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+          const { error: uploadError } = await supabase.storage
+            .from('quote-images')
+            .upload(path, s.referenceImage, { upsert: true })
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage.from('quote-images').getPublicUrl(path)
+            referenceImageUrl = urlData.publicUrl
+          }
+        }
+
+        const payload = {
           quote_number: s.quoteNumber, quote_date: s.quoteDate,
           quote_validity_days: s.quoteValidityDays,
           payment_method: s.paymentMethod,
           deposit_percent: s.depositPercent,
           quote_notes: s.quoteNotes,
-          // Client
           client_type: s.clientType,
           client_civility: s.clientCivility,
           client_first_name: s.clientFirstName,
@@ -244,25 +260,34 @@ export default {
           client_country: s.clientCountry,
           client_siret: s.clientSiret,
           client_vat_number: s.clientVatNumber,
-          // Projet
           project_name: s.projectName, quantity: s.quantity,
           print_profile: s.printProfile, printer_model: s.printerModel, nozzle_size: s.nozzleSize,
-          // Matière
           material: s.material, cost_per_kg: s.costPerKg,
           weight: s.weight, loss_percent: s.lossPercent, color_count: s.colorCount, purge_waste: s.purgeWaste,
-          // Temps
           print_hours: s.printHours, print_minutes: s.printMinutes,
           prep_time: s.prepTime, post_time: s.postTime, hourly_rate: s.hourlyRate,
-          // Coûts
           packaging_cost: s.packagingCost, tax_rate: s.taxRate,
           selected_pricing: s.selectedPricing, custom_margin: s.customMargin,
           material_cost: c.materialCost, equipment_cost: c.equipmentCost,
           work_cost: c.workCost, total_cost: c.totalCost, cost_per_unit: c.costPerUnit,
-        })
+          reference_image_url: referenceImageUrl || null,
+        }
+
+        const editId = s.editingQuoteId || this.$route.query.editId || null
+
+        let savedQuote
+        if (editId) {
+          savedQuote = await updateQuote(editId, payload)
+          this.$refs.toast.show('Devis mis à jour avec succès !', 'success')
+          s.editingQuoteId = null
+          this.$router.replace({ query: {} })
+        } else {
+          savedQuote = await saveQuoteToDb(payload)
+          this.$refs.toast.show(this.isAdmin ? 'Devis sauvegardé !' : 'Demande envoyée !', 'success')
+          const emailSettings = JSON.parse(localStorage.getItem('bambu_email_settings') || '{}')
+          supabase.functions.invoke('send-quote-email', { body: { quote: savedQuote, settings: emailSettings } }).catch(() => {})
+        }
         this.saveStatus = 'ok'
-        this.$refs.toast.show('Devis sauvegardé avec succès !', 'success')
-        // Notification email (silencieuse — ne bloque pas l'UX)
-        supabase.functions.invoke('send-quote-email', { body: { quote: savedQuote } }).catch(() => {})
       } catch (e) {
         this.saveStatus = null
         this.$refs.toast.show('Erreur lors de la sauvegarde. Réessaie.', 'error')

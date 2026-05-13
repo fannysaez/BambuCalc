@@ -69,6 +69,17 @@ export async function saveQuote(quote) {
   return data
 }
 
+export async function updateQuote(id, quote) {
+  const { data, error } = await supabase
+    .from('quotes')
+    .update(quote)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function getQuotes() {
   const { data, error } = await supabase
     .from('quotes')

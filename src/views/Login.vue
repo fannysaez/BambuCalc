@@ -22,6 +22,9 @@
           <router-link to="/signup" class="auth-tab" aria-label="S'inscrire" title="S'inscrire">
             <UserPlus class="auth-tab-icon" aria-hidden="true" />
           </router-link>
+          <button type="button" class="auth-tab auth-tab-guest" aria-label="Mode invité" title="Continuer sans compte" @click="onGuest">
+            <UserX class="auth-tab-icon" aria-hidden="true" />
+          </button>
         </div>
 
         <div class="auth-header">
@@ -369,7 +372,7 @@ export default comp
 
 .auth-switcher {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.3rem;
   padding: 0.25rem;
   margin: 0;
@@ -381,6 +384,13 @@ export default comp
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 10px 24px rgba(29, 18, 43, 0.08);
   z-index: 2;
+}
+
+.auth-tab-guest {
+  color: #718096;
+}
+.auth-tab-guest:hover {
+  color: #2e9cab;
 }
 
 .auth-tab {

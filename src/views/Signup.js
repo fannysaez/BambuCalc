@@ -1,10 +1,11 @@
 import { defineComponent } from 'vue'
-import { Home, Lock, UserPlus } from 'lucide-vue-next'
+import { Home, Lock, UserPlus, UserX } from 'lucide-vue-next'
 import { signup, loginWithGoogle } from '../utils/auth'
+import { supabase } from '../lib/supabase'
 
 export default defineComponent({
   name: 'Signup',
-  components: { Home, Lock, UserPlus },
+  components: { Home, Lock, UserPlus, UserX },
   data() {
     return {
       firstName: '',
@@ -43,6 +44,15 @@ export default defineComponent({
         await loginWithGoogle()
       } catch (err) {
         this.error = 'Connexion Google impossible. Réessaie.'
+      }
+    },
+    async onGuest() {
+      try {
+        const { error } = await supabase.auth.signInAnonymously()
+        if (error) throw error
+        this.$router.push('/dashboard')
+      } catch {
+        this.error = 'Impossible de démarrer en mode invité. Réessaie.'
       }
     },
   },

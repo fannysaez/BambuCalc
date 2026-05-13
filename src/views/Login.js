@@ -1,10 +1,11 @@
 import { defineComponent } from 'vue'
-import { Home, Lock, UserPlus } from 'lucide-vue-next'
+import { Home, Lock, UserPlus, UserX } from 'lucide-vue-next'
 import { login, loginWithGoogle, resetPasswordForEmail, checkIsAdmin } from '../utils/auth'
+import { supabase } from '../lib/supabase'
 
 export default defineComponent({
   name: 'Login',
-  components: { Home, Lock, UserPlus },
+  components: { Home, Lock, UserPlus, UserX },
   data() {
     return {
       email: '',
@@ -57,6 +58,15 @@ export default defineComponent({
       this.forgotSent = false
       this.forgotEmail = ''
       this.forgotError = null
+    },
+    async onGuest() {
+      try {
+        const { error } = await supabase.auth.signInAnonymously()
+        if (error) throw error
+        this.$router.push('/dashboard')
+      } catch {
+        this.error = 'Impossible de démarrer en mode invité. Réessaie.'
+      }
     },
   },
 })

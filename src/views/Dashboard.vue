@@ -1,6 +1,38 @@
 <template>
   <div class="dash-page">
 
+    <!-- Bannière mode invité -->
+    <div v-if="isAnonymous" class="anon-banner">
+      <UserX class="anon-banner-icon" />
+      <div class="anon-banner-text">
+        <strong>Mode invité</strong> — vos devis sont sauvegardés temporairement. Créez un compte pour les conserver définitivement.
+      </div>
+      <button class="btn-link-toggle" @click="showLinkForm = !showLinkForm">
+        {{ showLinkForm ? 'Fermer' : 'Lier mon email' }}
+      </button>
+    </div>
+
+    <!-- Formulaire de liaison -->
+    <div v-if="isAnonymous && showLinkForm" class="link-form-card">
+      <h3 class="link-form-title">Créer mon compte</h3>
+      <p class="link-form-sub">Vos devis existants seront conservés.</p>
+      <form class="link-form" @submit.prevent="linkAccount">
+        <div class="link-field">
+          <label>Email</label>
+          <input v-model="linkEmail" type="email" placeholder="vous@exemple.com" required />
+        </div>
+        <div class="link-field">
+          <label>Mot de passe</label>
+          <input v-model="linkPassword" type="password" placeholder="••••••••" minlength="6" required />
+        </div>
+        <p v-if="linkError" class="link-error">{{ linkError }}</p>
+        <p v-if="linkSuccess" class="link-success">✓ Email de confirmation envoyé ! Vérifiez votre boîte mail.</p>
+        <button type="submit" class="btn-link-submit" :disabled="linking">
+          {{ linking ? 'Envoi…' : 'Créer mon compte' }}
+        </button>
+      </form>
+    </div>
+
     <!-- Hero bar -->
     <div class="dash-hero">
       <div class="dash-hero-left">
@@ -143,18 +175,25 @@ import { supabase } from '../lib/supabase'
 import { getQuotes } from '../utils/auth'
 import { generateQuotePDF } from '../utils/generateQuotePDF'
 import ToastMessage from '../components/ToastMessage.vue'
-import { User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download } from 'lucide-vue-next'
+import { User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download, UserX } from 'lucide-vue-next'
 
 export default {
   name: 'Dashboard',
-  components: { ToastMessage, User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download },
+  components: { ToastMessage, User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download, UserX },
   data() {
     return {
       displayName: '',
+      isAnonymous: false,
       quotes: [],
       loading: true,
       deleteTarget: null,
       deleting: false,
+      showLinkForm: false,
+      linkEmail: '',
+      linkPassword: '',
+      linking: false,
+      linkSuccess: false,
+      linkError: null,
     }
   },
   computed: {
@@ -177,9 +216,14 @@ export default {
     const { data } = await supabase.auth.getUser()
     const user = data.user
     if (user) {
-      const meta = user.user_metadata || {}
-      const full = meta.full_name || meta.name || ''
-      this.displayName = full.split(' ')[0] || user.email?.split('@')[0] || ''
+      this.isAnonymous = user.is_anonymous ?? false
+      if (this.isAnonymous) {
+        this.displayName = 'Invité'
+      } else {
+        const meta = user.user_metadata || {}
+        const full = meta.full_name || meta.name || ''
+        this.displayName = full.split(' ')[0] || user.email?.split('@')[0] || ''
+      }
     }
     await this.loadQuotes()
   },
@@ -219,6 +263,24 @@ export default {
         this.deleting = false
       }
     },
+    async linkAccount() {
+      this.linking = true
+      this.linkError = null
+      this.linkSuccess = false
+      try {
+        const { error } = await supabase.auth.updateUser({
+          email: this.linkEmail,
+          password: this.linkPassword,
+        })
+        if (error) throw error
+        this.linkSuccess = true
+        this.isAnonymous = false
+      } catch (e) {
+        this.linkError = e.message || 'Une erreur est survenue.'
+      } finally {
+        this.linking = false
+      }
+    },
     fmtEur(v) {
       return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
     },
@@ -239,6 +301,119 @@ export default {
   margin: 0 auto;
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
 }
+
+/* ── Bannière invité ── */
+.anon-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1.1rem;
+  background: linear-gradient(135deg, #fff7e6, #fff3d6);
+  border: 1px solid #f6c05c;
+  border-radius: 14px;
+  margin-bottom: 1rem;
+  font-size: 0.84rem;
+  color: #7a5c1a;
+}
+.anon-banner-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
+  color: #d4a017;
+}
+.anon-banner-text { flex: 1; line-height: 1.5; }
+.btn-link-toggle {
+  padding: 0.45rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: #1b2f39;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+.btn-link-toggle:hover { opacity: 0.85; }
+
+/* ── Formulaire liaison ── */
+.link-form-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.link-form-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1b2f39;
+  margin: 0 0 0.2rem;
+}
+.link-form-sub {
+  font-size: 0.8rem;
+  color: #718096;
+  margin: 0 0 1rem;
+}
+.link-form { display: grid; gap: 0.75rem; }
+.link-field { display: grid; gap: 0.3rem; }
+.link-field label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #718096;
+}
+.link-field input {
+  border: 1px solid #c8c5c9;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+  font-size: 0.88rem;
+  color: #1f1e23;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.link-field input:focus {
+  border-color: #2e9cab;
+  box-shadow: 0 0 0 3px rgba(46,154,171,0.16);
+}
+.link-error {
+  font-size: 0.8rem;
+  color: #c0392b;
+  background: rgba(220,53,69,0.07);
+  border: 1px solid rgba(220,53,69,0.2);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  margin: 0;
+}
+.link-success {
+  font-size: 0.82rem;
+  color: #276749;
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  margin: 0;
+}
+.btn-link-submit {
+  padding: 0.65rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 12px rgba(46,156,171,0.25);
+  transition: filter 0.2s ease;
+}
+.btn-link-submit:hover:not(:disabled) { filter: brightness(1.07); }
+.btn-link-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── Hero ── */
 .dash-hero {
