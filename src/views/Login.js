@@ -63,7 +63,7 @@ export default defineComponent({
       try {
         const { error } = await supabase.auth.signInAnonymously()
         if (error) throw error
-        this.$router.push('/dashboard')
+        this.$router.push('/calculator')
       } catch {
         this.error = 'Impossible de démarrer en mode invité. Réessaie.'
       }
