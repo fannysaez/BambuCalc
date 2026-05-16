@@ -171,7 +171,8 @@
       </div>
     </div>
 
-    <div class="grid-2">
+    <!-- Champs techniques — visibles uniquement pour l'admin -->
+    <div v-if="showTechnicalFields" class="grid-2">
       <div :class="formStyles.formGroup">
         <label :class="formStyles.label">Imprimante</label>
         <select :class="formStyles.select" :value="printerModel"
@@ -292,11 +293,12 @@ export default {
     clientSiret:       { type: String,  default: '' },
     clientVatNumber:   { type: String,  default: '' },
 
-    projectName:       { type: String,  default: '' },
-    quantity:          { type: Number,  default: 1 },
-    printProfile:      { type: String,  default: 'normal' },
-    printerModel:      { type: String,  default: 'p2s-combo' },
-    nozzleSize:        { type: String,  default: '0.4' },
+    projectName:          { type: String,  default: '' },
+    quantity:             { type: Number,  default: 1 },
+    printProfile:         { type: String,  default: 'normal' },
+    printerModel:         { type: String,  default: 'p2s-combo' },
+    nozzleSize:           { type: String,  default: '0.4' },
+    showTechnicalFields:  { type: Boolean, default: false },
 
     referenceImage:    { type: Object,  default: null },
     referenceImageUrl: { type: String,  default: '' },

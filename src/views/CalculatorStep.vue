@@ -54,6 +54,7 @@
           v-model:printProfile="store.printProfile"
           v-model:printerModel="store.printerModel"
           v-model:nozzleSize="store.nozzleSize"
+          :showTechnicalFields="isAdmin"
           v-model:referenceImage="store.referenceImage"
           v-model:referenceImageUrl="store.referenceImageUrl"
           v-model:paymentMethod="store.paymentMethod"
@@ -156,6 +157,13 @@ export default {
   },
   async created() {
     this.isAdmin = await checkIsAdmin()
+    // Régénère le numéro si le store date d'un autre jour (SPA en mémoire)
+    if (!this.store.editingQuoteId && !this.$route.query.editId && this.store.quoteNumberIsStale) {
+      this.store.quoteNumber = this.store.quoteNumber.replace(
+        /DEV-\d{8}-/,
+        `DEV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-`,
+      )
+    }
   },
   data() {
     return {
@@ -284,8 +292,9 @@ export default {
         } else {
           savedQuote = await saveQuoteToDb(payload)
           this.$refs.toast.show(this.isAdmin ? 'Devis sauvegardé !' : 'Demande envoyée !', 'success')
-          const emailSettings = JSON.parse(localStorage.getItem('bambu_email_settings') || '{}')
-          supabase.functions.invoke('send-quote-email', { body: { quote: savedQuote, settings: emailSettings } }).catch(() => {})
+          supabase.functions.invoke('send-quote-email', { body: { quote: savedQuote } }).catch(() => {})
+          // Remet le store à zéro pour éviter que les données client A se retrouvent dans le devis B
+          setTimeout(() => s.resetForNewQuote(), 2000)
         }
         this.saveStatus = 'ok'
       } catch (e) {

@@ -84,16 +84,12 @@
             />
           </div>
 
-          <div class="field">
-            <label for="signup-password">Mot de passe</label>
-            <input
-              id="signup-password"
-              v-model="password"
-              type="password"
-              placeholder="••••••••"
-              required
-            />
-          </div>
+          <PasswordField
+            id="signup-password"
+            label="Mot de passe"
+            :show-strength="true"
+            v-model="password"
+          />
 
           <!-- RGPD -->
           <label class="gdpr-check">

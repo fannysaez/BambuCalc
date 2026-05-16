@@ -44,10 +44,15 @@
           <h1 class="dash-greeting">Bonjour{{ displayName ? ', ' + displayName : '' }} !</h1>
         </div>
       </div>
-      <router-link to="/calculator/1" class="btn-new">
-        <Plus class="btn-new-icon" />
-        Nouveau devis
-      </router-link>
+      <div class="dash-hero-actions">
+        <router-link to="/profile" class="btn-profile" title="Mon profil">
+          <User class="btn-profile-icon" />
+        </router-link>
+        <router-link to="/calculator/1" class="btn-new">
+          <Plus class="btn-new-icon" />
+          Nouveau devis
+        </router-link>
+      </div>
     </div>
 
     <!-- Stats -->
@@ -484,6 +489,16 @@ export default {
 .btn-new--sm { margin-top: 0.75rem; font-size: 0.82rem; }
 
 .btn-new-icon { width: 0.95rem; height: 0.95rem; }
+
+.dash-hero-actions { display: flex; align-items: center; gap: 0.65rem; }
+.btn-profile {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.4rem; height: 2.4rem; border-radius: 999px;
+  border: 1.5px solid #e2e8f0; background: rgba(255,255,255,0.9);
+  color: #718096; text-decoration: none; transition: all 0.2s;
+}
+.btn-profile:hover { border-color: #2e9cab; color: #2e9cab; }
+.btn-profile-icon { width: 1rem; height: 1rem; }
 
 /* ── Stats ── */
 .stats-row {

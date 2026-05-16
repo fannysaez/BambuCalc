@@ -12,7 +12,10 @@
           <h1 class="admin-title">Bonjour{{ displayName ? ', ' + displayName : '' }} !</h1>
         </div>
       </div>
-      <router-link to="/dashboard" class="btn-back-dash">← Mon dashboard</router-link>
+      <div class="admin-hero-actions">
+        <button class="btn-new-quote" @click="startNewQuote">+ Nouveau devis</button>
+        <router-link to="/dashboard" class="btn-back-dash">← Mon dashboard</router-link>
+      </div>
     </div>
 
     <!-- Stats globales -->
@@ -277,32 +280,13 @@
         <div class="email-sep" />
 
         <div class="email-group">
-          <div class="email-group-title"><Pencil class="email-group-icon" /> Identité de l'entreprise</div>
-          <div class="email-field-row">
-            <label class="email-field-label">Nom de l'entreprise</label>
-            <input class="email-field-input" v-model="businessName" placeholder="BambuCalc" />
-          </div>
-          <div class="email-field-row">
-            <label class="email-field-label">Adresse</label>
-            <input class="email-field-input" v-model="businessAddress" placeholder="143 bis Bd Lafayette, 63000 Clermont-Ferrand" />
-          </div>
-          <div class="email-field-row">
-            <label class="email-field-label">Téléphone</label>
-            <input class="email-field-input" v-model="businessPhone" placeholder="+33 6 00 00 00 00" />
-          </div>
-          <div class="email-field-row">
-            <label class="email-field-label">Couleur principale</label>
-            <div class="color-row">
-              <input class="email-field-input email-field-input--color" v-model="primaryColor" type="color" />
-              <span class="color-hex">{{ primaryColor }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="email-sep" />
-
-        <div class="email-group">
           <div class="email-group-title"><Mail class="email-group-icon" /> Contenu du mail client</div>
+          <div class="email-field-row">
+            <label class="email-field-label">Sujet du mail</label>
+            <input class="email-field-input" v-model="emailSubject"
+              placeholder="Votre devis BambuCalc — [numéro]" />
+          </div>
+          <p class="email-field-hint">Utilisez [numéro] pour le numéro de devis.</p>
           <div class="email-field-row email-field-row--top">
             <label class="email-field-label">Texte d'introduction</label>
             <textarea class="email-field-input email-field-textarea" v-model="emailIntroClient"
@@ -312,10 +296,17 @@
           <p class="email-field-hint">Utilisez [client] pour insérer automatiquement le nom du client.</p>
         </div>
 
-        <button class="btn-save-email" @click="saveEmailSettings">
-          <span v-if="emailSaved">✓ Paramètres sauvegardés</span>
-          <span v-else>Sauvegarder</span>
-        </button>
+        <div class="email-actions">
+          <button class="btn-save-email" @click="saveEmailSettings">
+            <span v-if="emailSaved">✓ Paramètres sauvegardés</span>
+            <span v-else>Sauvegarder</span>
+          </button>
+          <button class="btn-test-email" @click="sendTestEmail" :disabled="testEmailSending">
+            <span v-if="testEmailSent">✓ Email de test envoyé !</span>
+            <span v-else-if="testEmailSending">Envoi…</span>
+            <span v-else>Envoyer un email de test</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -379,7 +370,7 @@ export default {
   data() {
     const saved = JSON.parse(localStorage.getItem('bambu_email_settings') || '{}')
     return {
-      displayName: '',
+      displayName:   '',
       currentUserId: null,
       profiles: [],
       quotes: [],
@@ -393,14 +384,13 @@ export default {
       notifAccepted:      saved.notifAccepted      ?? true,
       notifClientConfirm: saved.notifClientConfirm ?? true,
       notifStatusChange:  saved.notifStatusChange  ?? true,
-      senderName:         saved.senderName         || 'BambuCalc',
-      replyTo:            saved.replyTo            || '',
-      businessName:       saved.businessName       || 'BambuCalc',
-      businessAddress:    saved.businessAddress    || '',
-      businessPhone:      saved.businessPhone      || '',
-      emailIntroClient:   saved.emailIntroClient   || '',
-      primaryColor:       saved.primaryColor       || '#2e9cab',
+      senderName:       saved.senderName       || 'BambuCalc',
+      replyTo:          saved.replyTo          || '',
+      emailSubject:     saved.emailSubject     || 'Votre devis BambuCalc — [numéro]',
+      emailIntroClient: saved.emailIntroClient || '',
       emailSaved: false,
+      testEmailSending: false,
+      testEmailSent: false,
     }
   },
   computed: {
@@ -463,7 +453,7 @@ export default {
       const full = meta.full_name || meta.name || ''
       this.displayName = full.split(' ')[0] || data.user.email?.split('@')[0] || ''
     }
-    await this.loadData()
+    await Promise.all([this.loadData(), this.loadEmailSettings()])
   },
   methods: {
     async loadData() {
@@ -516,6 +506,35 @@ export default {
       } finally {
         this.deleting = false
       }
+    },
+    async sendTestEmail() {
+      this.testEmailSending = true
+      const { data } = await supabase.auth.getUser()
+      const testQuote = {
+        quote_number:  'DEV-TEST-0000',
+        project_name:  'Pièce de test',
+        material:      'PLA+',
+        quantity:      1,
+        total_cost:    42.50,
+        client_email:  data.user?.email || '',
+        client_name:   this.displayName || 'Admin',
+        client_first_name: this.displayName || 'Admin',
+        payment_method: 'virement',
+        deposit_percent: 0,
+      }
+      try {
+        await supabase.functions.invoke('send-quote-email', { body: { quote: testQuote } })
+        this.testEmailSent = true
+        setTimeout(() => { this.testEmailSent = false }, 4000)
+      } catch {
+        this.$refs.toast?.show('Erreur lors de l\'envoi du test.', 'error')
+      } finally {
+        this.testEmailSending = false
+      }
+    },
+    startNewQuote() {
+      this.calculatorStore.resetForNewQuote()
+      this.$router.push('/calculator/1')
     },
     editQuote(q) {
       this.calculatorStore.$patch({
@@ -572,16 +591,53 @@ export default {
       quote.status = newStatus
       this.$refs.toast.show('Statut mis à jour.', 'success', 1800)
     },
-    saveEmailSettings() {
-      const settings = {
+    async loadEmailSettings() {
+      const { data, error } = await supabase
+        .from('email_settings')
+        .select('*')
+        .single()
+      if (error || !data) return
+      this.senderName          = data.sender_name          || 'BambuCalc'
+      this.replyTo             = data.reply_to             || ''
+      this.emailSubject        = data.email_subject        || 'Votre devis BambuCalc — [numéro]'
+      this.emailIntroClient    = data.email_intro_client   || ''
+      this.notifNewQuote       = data.notif_new_quote      ?? true
+      this.notifAccepted       = data.notif_accepted       ?? true
+      this.notifClientConfirm  = data.notif_client_confirm ?? true
+      this.notifStatusChange   = data.notif_status_change  ?? true
+      // Met à jour le cache localStorage pour la prochaine ouverture
+      localStorage.setItem('bambu_email_settings', JSON.stringify({
+        senderName: this.senderName, replyTo: this.replyTo,
+        emailSubject: this.emailSubject, emailIntroClient: this.emailIntroClient,
         notifNewQuote: this.notifNewQuote, notifAccepted: this.notifAccepted,
         notifClientConfirm: this.notifClientConfirm, notifStatusChange: this.notifStatusChange,
-        senderName: this.senderName, replyTo: this.replyTo,
-        businessName: this.businessName, businessAddress: this.businessAddress,
-        businessPhone: this.businessPhone, emailIntroClient: this.emailIntroClient,
-        primaryColor: this.primaryColor,
+      }))
+    },
+    async saveEmailSettings() {
+      const { error } = await supabase
+        .from('email_settings')
+        .update({
+          sender_name:          this.senderName,
+          reply_to:             this.replyTo,
+          email_subject:        this.emailSubject,
+          email_intro_client:   this.emailIntroClient,
+          notif_new_quote:      this.notifNewQuote,
+          notif_accepted:       this.notifAccepted,
+          notif_client_confirm: this.notifClientConfirm,
+          notif_status_change:  this.notifStatusChange,
+          updated_at:           new Date().toISOString(),
+        })
+        .eq('id', 1)
+      if (error) {
+        this.$refs.toast?.show('Erreur lors de la sauvegarde.', 'error')
+        return
       }
-      localStorage.setItem('bambu_email_settings', JSON.stringify(settings))
+      localStorage.setItem('bambu_email_settings', JSON.stringify({
+        senderName: this.senderName, replyTo: this.replyTo,
+        emailSubject: this.emailSubject, emailIntroClient: this.emailIntroClient,
+        notifNewQuote: this.notifNewQuote, notifAccepted: this.notifAccepted,
+        notifClientConfirm: this.notifClientConfirm, notifStatusChange: this.notifStatusChange,
+      }))
       this.emailSaved = true
       setTimeout(() => { this.emailSaved = false }, 3000)
     },
@@ -665,6 +721,19 @@ export default {
   letter-spacing: 0.08em; color: #5a67d8; margin: 0 0 0.1rem;
 }
 .admin-title { font-size: 1.3rem; font-weight: 800; color: #1b2f39; margin: 0; letter-spacing: -0.02em; }
+.admin-hero-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+.btn-new-quote {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.55rem 1.1rem; border-radius: 999px;
+  background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
+  border: none; color: #fff; font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 4px 12px rgba(46,156,171,0.28);
+  transition: filter 0.2s ease;
+}
+.btn-new-quote:hover { filter: brightness(1.07); }
+
 .btn-back-dash {
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.55rem 1.1rem; border-radius: 999px;
@@ -913,17 +982,6 @@ export default {
   line-height: 1.5;
   font-family: inherit;
 }
-.email-field-input--color {
-  width: 2.5rem;
-  height: 2.2rem;
-  padding: 0.15rem;
-  border-radius: 6px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.color-row { display: flex; align-items: center; gap: 0.6rem; flex: 1; }
-.color-hex { font-size: 0.78rem; font-weight: 700; color: #4a5568; font-family: 'Courier New', monospace; }
-
 .email-field-hint {
   font-size: 0.72rem;
   color: #a0aec0;
@@ -931,8 +989,19 @@ export default {
   padding-left: 0.85rem;
 }
 
+.email-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
+
+.btn-test-email {
+  padding: 0.6rem 1.5rem; border: 1.5px solid #2e9cab; border-radius: 999px;
+  background: transparent; color: #2e9cab;
+  font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all 0.2s ease;
+}
+.btn-test-email:hover:not(:disabled) { background: #e8f7f9; }
+.btn-test-email:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .btn-save-email {
-  margin-top: 1rem; align-self: flex-start;
+  align-self: flex-start;
   padding: 0.6rem 1.5rem; border: none; border-radius: 999px;
   background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
   color: #fff; font-size: 0.88rem; font-weight: 700;

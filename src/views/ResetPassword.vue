@@ -1,3 +1,69 @@
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Lock } from 'lucide-vue-next'
+import { supabase } from '../lib/supabase'
+import PasswordField from '../components/PasswordField.vue'
+
+const router = useRouter()
+
+const password    = ref('')
+const confirm     = ref('')
+const error       = ref(null)
+const loading     = ref(false)
+const success     = ref(false)
+const sessionReady = ref(false)
+
+let subscription = null
+
+onMounted(async () => {
+  // Supabase émet PASSWORD_RECOVERY quand le token de l'URL est consommé
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
+      sessionReady.value = true
+    }
+  })
+  subscription = data.subscription
+
+  // Si la session existe déjà (rechargement de page)
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) sessionReady.value = true
+})
+
+onUnmounted(() => {
+  subscription?.unsubscribe()
+})
+
+async function onSubmit() {
+  error.value = null
+
+  if (!password.value || password.value.length < 8) {
+    error.value = 'Le mot de passe doit contenir au moins 8 caractères.'
+    return
+  }
+  if (password.value !== confirm.value) {
+    error.value = 'Les mots de passe ne correspondent pas.'
+    return
+  }
+
+  loading.value = true
+  try {
+    const { error: err } = await supabase.auth.updateUser({ password: password.value })
+    if (err) throw err
+    success.value = true
+    setTimeout(() => router.push('/login'), 2000)
+  } catch (e) {
+    if (e?.message?.includes('session')) {
+      error.value = 'Le lien a expiré. Recommence depuis la page de connexion.'
+    } else {
+      error.value = e?.message || 'Erreur lors de la mise à jour.'
+    }
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="reset-page">
     <div class="reset-card">
@@ -7,10 +73,15 @@
 
       <!-- Succès -->
       <div v-if="success" class="state-block">
-        <div class="state-emoji">✓</div>
+        <div class="state-check">✓</div>
         <h2>Mot de passe mis à jour !</h2>
-        <p>Tu peux maintenant te connecter avec ton nouveau mot de passe.</p>
-        <router-link to="/login" class="btn-primary">Se connecter</router-link>
+        <p>Redirection vers la connexion…</p>
+      </div>
+
+      <!-- Session non prête -->
+      <div v-else-if="!sessionReady" class="state-block">
+        <div class="spinner" />
+        <p>Vérification du lien…</p>
       </div>
 
       <!-- Formulaire -->
@@ -18,27 +89,18 @@
         <h2 class="reset-title">Nouveau mot de passe</h2>
         <p class="reset-sub">Choisis un mot de passe sécurisé.</p>
 
-        <div class="field">
-          <label for="new-password">Nouveau mot de passe</label>
-          <input
-            id="new-password"
-            v-model="password"
-            type="password"
-            placeholder="••••••••"
-            minlength="8"
-            required
-          />
-        </div>
+        <PasswordField
+          id="new-password"
+          label="Nouveau mot de passe"
+          :show-strength="true"
+          v-model="password"
+        />
 
-        <div class="field">
-          <label for="confirm-password">Confirmer</label>
-          <input
+        <div class="field-gap">
+          <PasswordField
             id="confirm-password"
+            label="Confirmer"
             v-model="confirm"
-            type="password"
-            placeholder="••••••••"
-            minlength="8"
-            required
           />
         </div>
 
@@ -51,43 +113,6 @@
     </div>
   </div>
 </template>
-
-<script>
-import { Lock } from 'lucide-vue-next'
-import { updatePassword } from '../utils/auth'
-
-export default {
-  name: 'ResetPassword',
-  components: { Lock },
-  data() {
-    return {
-      password: '',
-      confirm: '',
-      error: null,
-      loading: false,
-      success: false,
-    }
-  },
-  methods: {
-    async onSubmit() {
-      this.error = null
-      if (this.password !== this.confirm) {
-        this.error = 'Les mots de passe ne correspondent pas.'
-        return
-      }
-      this.loading = true
-      try {
-        await updatePassword(this.password)
-        this.success = true
-      } catch {
-        this.error = 'Erreur lors de la mise à jour. Le lien est peut-être expiré.'
-      } finally {
-        this.loading = false
-      }
-    },
-  },
-}
-</script>
 
 <style scoped>
 .reset-page {
@@ -138,37 +163,10 @@ export default {
   margin: 0 0 1.5rem;
 }
 
-.field {
-  display: grid;
-  gap: 0.38rem;
-  margin-bottom: 1rem;
-}
-.field label {
-  font-size: 0.72rem;
-  color: #5b5a61;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  font-weight: 600;
-}
-.field input {
-  width: 100%;
-  border: 1px solid #c8c5c9;
-  border-radius: 0.55rem;
-  background: #fff;
-  min-height: 2.9rem;
-  padding: 0.72rem 0.95rem;
-  font: inherit;
-  color: #1f1e23;
-  outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.field input:focus {
-  border-color: #2e9cab;
-  box-shadow: 0 0 0 3px rgba(46,154,171,0.16);
-}
+.field-gap { margin-top: 1rem; }
 
 .auth-error {
-  margin: 0 0 0.75rem;
+  margin: 0.75rem 0;
   padding: 0.6rem 0.85rem;
   border-radius: 0.4rem;
   background: rgba(220,53,69,0.08);
@@ -193,20 +191,35 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none;
+  margin-top: 1.25rem;
 }
 .btn-primary:disabled { opacity: 0.65; cursor: not-allowed; }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
 
-/* Succès */
+/* Succès / attente */
 .state-block {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 0.6rem;
+  padding: 1rem 0;
 }
-.state-emoji { font-size: 2.5rem; color: #2e9cab; }
+.state-check {
+  font-size: 2.5rem;
+  color: #2e9cab;
+  font-weight: 800;
+}
 .state-block h2 { font-size: 1.3rem; font-weight: 800; color: #1b2f39; margin: 0; }
-.state-block p  { font-size: 0.88rem; color: #718096; margin: 0 0 0.5rem; }
+.state-block p  { font-size: 0.88rem; color: #718096; margin: 0; }
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2e9cab;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

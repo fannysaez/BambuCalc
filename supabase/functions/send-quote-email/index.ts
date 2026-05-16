@@ -1,7 +1,11 @@
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
-const ADMIN_EMAIL = 'fanny.saez.0486@gmail.com'
+const RESEND_API_KEY  = Deno.env.get('RESEND_API_KEY')  ?? ''
+const SUPABASE_URL    = Deno.env.get('SUPABASE_URL')    ?? ''
+const SERVICE_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const ADMIN_EMAIL     = 'fanny.saez.0486@gmail.com'
+const BRAND_COLOR     = '#2e9cab'
 
 function fmtEur(v: number) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
@@ -10,12 +14,30 @@ function fmtEur(v: number) {
 function paymentLabel(method: string) {
   const map: Record<string, string> = {
     virement: 'Virement bancaire',
-    cheque: 'Chèque',
-    cb: 'Carte bancaire',
-    especes: 'Espèces',
-    paypal: 'PayPal',
+    cheque:   'Chèque',
+    cb:       'Carte bancaire',
+    especes:  'Espèces',
+    paypal:   'PayPal',
   }
   return map[method] ?? method ?? 'Virement bancaire'
+}
+
+async function fetchEmailSettings() {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/email_settings?select=*&limit=1`,
+      {
+        headers: {
+          apikey:        SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+        },
+      },
+    )
+    const rows = await res.json()
+    return Array.isArray(rows) && rows.length ? rows[0] : {}
+  } catch {
+    return {}
+  }
 }
 
 serve(async (req) => {
@@ -29,46 +51,39 @@ serve(async (req) => {
   }
 
   try {
-    const { quote, settings = {} } = await req.json()
+    const { quote } = await req.json()
     if (!quote) return new Response(JSON.stringify({ error: 'No quote data' }), { status: 400 })
 
-    // Paramètres personnalisables (depuis l'admin panel)
-    const businessName    = settings.businessName    || 'BambuCalc'
-    const businessAddress = settings.businessAddress || '143 bis Boulevard Lafayette, 63000 Clermont-Ferrand'
-    const businessPhone   = settings.businessPhone   || ''
-    const senderName      = settings.senderName      || businessName
-    const replyTo         = settings.replyTo         || ADMIN_EMAIL
-    const primaryColor    = settings.primaryColor    || '#2e9cab'
-    const customIntro     = settings.emailIntroClient || ''
+    // Paramètres récupérés depuis la base de données (table email_settings)
+    const dbSettings  = await fetchEmailSettings()
+    const senderName   = dbSettings.sender_name        || 'BambuCalc'
+    const replyTo      = dbSettings.reply_to           || ADMIN_EMAIL
+    const customSubject = dbSettings.email_subject     || 'Votre devis [senderName] — [numéro]'
+    const customIntro  = dbSettings.email_intro_client || ''
 
     const clientDisplay =
       quote.client_name ||
       [quote.client_first_name, quote.client_last_name].filter(Boolean).join(' ') ||
       '—'
+
     const adresse = [
       quote.client_address,
       quote.client_postal_code,
       quote.client_city,
       quote.client_country,
-    ]
-      .filter(Boolean)
-      .join(', ')
+    ].filter(Boolean).join(', ')
 
-    // Intro client : remplace [client] par le prénom
     const clientFirstName = quote.client_first_name || clientDisplay.split(' ')[0] || clientDisplay
     const introText = customIntro
       ? customIntro.replace(/\[client\]/gi, clientFirstName)
       : `Bonjour ${clientDisplay},<br/>Voici le récapitulatif de votre devis. N'hésitez pas à nous contacter pour toute question.`
 
-    // Footer entreprise
-    const footerLines = [businessName, businessAddress, businessPhone].filter(Boolean).join(' — ')
-
     const sharedStyles = `
   body { font-family: Inter, Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; }
   .wrapper { max-width: 560px; margin: 40px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-  .header { background: linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc); padding: 28px 32px; color: #fff; }
+  .header { background: linear-gradient(135deg, ${BRAND_COLOR}, #3fb2bf); padding: 28px 32px; color: #fff; }
   .header h1 { margin: 0; font-size: 20px; font-weight: 800; }
-  .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.85; }
+  .header p  { margin: 6px 0 0; font-size: 13px; opacity: 0.85; }
   .body { padding: 28px 32px; }
   .intro { font-size: 15px; color: #4a5568; line-height: 1.7; margin-bottom: 24px; }
   .badge { display: inline-block; background: #e8f7f9; color: #1f7f97; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 18px; }
@@ -78,21 +93,19 @@ serve(async (req) => {
   .info-value { font-weight: 700; color: #1b2f39; text-align: right; }
   .total-row { background: #e8f7f9; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; margin-top: 16px; }
   .total-label { font-weight: 800; color: #1b2f39; font-size: 15px; }
-  .total-value { font-weight: 800; color: ${primaryColor}; font-size: 18px; }
+  .total-value { font-weight: 800; color: ${BRAND_COLOR}; font-size: 18px; }
   .notes { background: #f7f9fc; border-radius: 10px; padding: 14px 16px; margin-top: 16px; font-size: 13px; color: #4a5568; line-height: 1.6; }
   .footer { padding: 20px 32px; background: #f7f9fc; text-align: center; font-size: 12px; color: #a0aec0; }
-  a { color: ${primaryColor}; }`
+  a { color: ${BRAND_COLOR}; }`
 
-    // ── Email admin ───────────────────────────────────────
-    const adminHtml = `
-<!DOCTYPE html>
+    // ── Email admin ───────────────────────────────────────────────
+    const adminHtml = `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><style>${sharedStyles}
-</style></head>
+<head><meta charset="UTF-8"><style>${sharedStyles}</style></head>
 <body>
 <div class="wrapper">
   <div class="header">
-    <h1>🖨️ Nouveau devis ${businessName}</h1>
+    <h1>🖨️ Nouveau devis ${senderName}</h1>
     <p>Un devis vient d'être sauvegardé</p>
   </div>
   <div class="body">
@@ -116,14 +129,13 @@ serve(async (req) => {
       <span class="total-value">${fmtEur(quote.total_cost ?? 0)}</span>
     </div>
   </div>
-  <div class="footer">${footerLines}</div>
+  <div class="footer">${senderName} — ${ADMIN_EMAIL}</div>
 </div>
 </body>
 </html>`
 
     const emails: Promise<Response>[] = []
 
-    // Email à l'admin
     emails.push(
       fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -137,17 +149,15 @@ serve(async (req) => {
       }),
     )
 
-    // Email au client (si email fourni)
+    // ── Email client ──────────────────────────────────────────────
     if (quote.client_email) {
-      const clientHtml = `
-<!DOCTYPE html>
+      const clientHtml = `<!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><style>${sharedStyles}
-</style></head>
+<head><meta charset="UTF-8"><style>${sharedStyles}</style></head>
 <body>
 <div class="wrapper">
   <div class="header">
-    <h1>🖨️ Votre devis ${businessName}</h1>
+    <h1>🖨️ Votre devis ${senderName}</h1>
     <p>Impression 3D professionnelle</p>
   </div>
   <div class="body">
@@ -168,7 +178,7 @@ serve(async (req) => {
 
     ${quote.quote_notes ? `<div class="notes"><strong>Notes :</strong><br/>${quote.quote_notes}</div>` : ''}
   </div>
-  <div class="footer">${footerLines}</div>
+  <div class="footer">${senderName} — ${ADMIN_EMAIL}</div>
 </div>
 </body>
 </html>`
@@ -176,15 +186,14 @@ serve(async (req) => {
       emails.push(
         fetch('https://api.resend.com/emails', {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
+          headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             from: `${senderName} <noreply@bambucalc.fr>`,
             to: [quote.client_email],
             reply_to: replyTo,
-            subject: `Votre devis ${businessName} — ${quote.quote_number ?? ''} — ${quote.project_name ?? ''}`,
+            subject: customSubject
+              .replace(/\[numéro\]/gi, quote.quote_number ?? '')
+              .replace(/\[senderName\]/gi, senderName),
             html: clientHtml,
           }),
         }),

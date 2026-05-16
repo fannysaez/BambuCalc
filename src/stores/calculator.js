@@ -93,6 +93,15 @@ export const useCalculatorStore = defineStore('calculator', {
       return state.clientName || ''
     },
 
+    // Indique si le numéro de devis a la date d'aujourd'hui
+    quoteNumberIsStale(state) {
+      const today = new Date()
+      const yy = today.getFullYear()
+      const mm = String(today.getMonth() + 1).padStart(2, '0')
+      const dd = String(today.getDate()).padStart(2, '0')
+      return !state.quoteNumber.startsWith(`DEV-${yy}${mm}${dd}`)
+    },
+
     calculatedCosts(state) {
       const r = (v) => Math.round(v * 100) / 100
 
@@ -131,6 +140,52 @@ export const useCalculatorStore = defineStore('calculator', {
         totalCost:     r(totalCost),
         costPerUnit:   r(totalCost / qty),
       }
+    },
+  },
+
+  actions: {
+    // Remet le store à zéro pour un nouveau devis (garde les paramètres équipement)
+    resetForNewQuote() {
+      this.$patch({
+        editingQuoteId:    null,
+        quoteNumber:       genQuoteNumber(),
+        quoteDate:         new Date().toISOString().split('T')[0],
+        quoteValidityDays: 30,
+        clientType:        'particulier',
+        clientCivility:    'M.',
+        clientFirstName:   '',
+        clientLastName:    '',
+        clientName:        '',
+        clientContactName: '',
+        clientEmail:       '',
+        clientPhone:       '',
+        clientAddress:     '',
+        clientPostalCode:  '',
+        clientCity:        '',
+        clientCountry:     'France',
+        clientSiret:       '',
+        clientVatNumber:   '',
+        projectName:       '',
+        quantity:          1,
+        paymentMethod:     'virement',
+        depositPercent:    0,
+        quoteNotes:        '',
+        material:          'PLA+',
+        costPerKg:         16.99,
+        weight:            0,
+        lossPercent:       5,
+        colorCount:        1,
+        purgeWaste:        0,
+        printHours:        0,
+        printMinutes:      0,
+        prepTime:          15,
+        postTime:          0,
+        packagingCost:     0,
+        selectedPricing:   'standard',
+        customMargin:      50,
+        referenceImage:    null,
+        referenceImageUrl: '',
+      })
     },
   },
 })

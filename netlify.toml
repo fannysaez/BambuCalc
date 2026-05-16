@@ -1,0 +1,10 @@
+[build]
+  command   = "npm run build"
+  publish   = "dist"
+
+# Indispensable pour Vue Router en mode history :
+# sans ça, tout rechargement hors "/" renvoie une 404 Netlify
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

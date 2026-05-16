@@ -2,10 +2,17 @@ import { defineComponent } from 'vue'
 import { Home, Lock, UserPlus, UserX } from 'lucide-vue-next'
 import { signup, loginWithGoogle } from '../utils/auth'
 import { supabase } from '../lib/supabase'
+import PasswordField from '../components/PasswordField.vue'
+
+function sendWelcomeEmail(email, firstName, lastName) {
+  supabase.functions.invoke('send-welcome-email', {
+    body: { email, firstName, lastName, appUrl: window.location.origin },
+  }).catch(() => {})
+}
 
 export default defineComponent({
   name: 'Signup',
-  components: { Home, Lock, UserPlus, UserX },
+  components: { Home, Lock, UserPlus, UserX, PasswordField },
   data() {
     return {
       firstName: '',
@@ -32,6 +39,7 @@ export default defineComponent({
           firstName: this.firstName,
           lastName: this.lastName,
         })
+        sendWelcomeEmail(this.email, this.firstName, this.lastName)
         this.$router.push('/calculator')
       } catch (err) {
         this.error = err.message ?? 'Une erreur est survenue.'

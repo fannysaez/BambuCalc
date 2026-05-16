@@ -7,6 +7,8 @@ import Login from '../views/Login.vue'
 import Signup from '../views/Signup.vue'
 import ResetPassword from '../views/ResetPassword.vue'
 import PrivacyPolicy from '../views/PrivacyPolicy.vue'
+import NotFound from '../views/NotFound.vue'
+import UserProfile from '../views/UserProfile.vue'
 import { supabase } from '../lib/supabase'
 
 const routes = [
@@ -19,9 +21,11 @@ const routes = [
   { path: '/signup', name: 'signup', component: Signup },
   { path: '/reset-password', name: 'reset-password', component: ResetPassword },
   { path: '/privacy', name: 'privacy', component: PrivacyPolicy },
+  { path: '/profile', name: 'profile', component: UserProfile, meta: { requiresAuth: true } },
   { path: '/guest', redirect: '/calculator/1' },
   { path: '/guest/calculator/:step', redirect: to => `/calculator/${to.params.step}` },
   { path: '/guest/dashboard', redirect: '/dashboard' },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound },
 ]
 
 const router = createRouter({
@@ -29,7 +33,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const { data } = await supabase.auth.getSession()
   const isAuth = !!data.session
 
