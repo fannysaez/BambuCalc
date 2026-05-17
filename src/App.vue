@@ -203,12 +203,12 @@ export default {
   gap: 0.35rem;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  background: linear-gradient(180deg, #667eea 0%, #5a67d8 100%);
+  background: linear-gradient(135deg, #9f7aea 0%, #7c3aed 100%);
   color: #fff;
   text-decoration: none;
   font-size: 0.78rem;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(90,103,216,0.35);
+  box-shadow: 0 4px 12px rgba(124,58,237,0.38);
   transition: filter 0.2s ease, transform 0.2s ease;
 }
 .adminBtn:hover { filter: brightness(1.08); transform: translateY(-1px); }

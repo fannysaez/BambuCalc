@@ -1,35 +1,59 @@
 <template>
   <div :class="formStyles.section">
 
-    <!-- Ligne 1 : Type + Marque -->
+    <!-- Ligne 1 : Filament (catalogue Supabase) + Type de projet -->
     <div class="grid-2">
+
+      <!-- Filament dynamique -->
       <div :class="formStyles.formGroup">
-        <label :class="formStyles.label" for="material">Type de filament</label>
-        <select id="material" :class="formStyles.select" :value="material" @change="onMaterialChange">
-          <option value="PLA+">PLA+</option>
-          <option value="PLA+ 2.0">PLA+ 2.0</option>
-          <option value="PLA">PLA</option>
-          <option value="PETG">PETG</option>
-          <option value="ABS">ABS</option>
-          <option value="TPU">TPU</option>
-          <option value="custom-material">+ Personnalisé…</option>
-          <optgroup v-if="customMaterials.length" label="─ Mes filaments ─">
-            <option v-for="mat in customMaterials" :key="mat.id" :value="mat.name">{{ mat.name }}</option>
-          </optgroup>
-        </select>
+        <label :class="formStyles.label">Filament</label>
+        <div class="mat-select-row">
+          <!-- Priorité : image_url (bobine) → color_or_image si URL → swatch couleur -->
+          <img v-if="selectedMaterialObj && (selectedMaterialObj.image_url || isImageUrl(selectedMaterialObj.color_or_image))"
+               class="mat-indicator mat-indicator--img"
+               :src="selectedMaterialObj.image_url || selectedMaterialObj.color_or_image"
+               :alt="selectedMaterialObj.name"
+               @error="$event.target.style.opacity='0.25'" />
+          <span v-else-if="selectedMaterialObj"
+                class="mat-indicator mat-indicator--swatch"
+                :style="{ background: isHexColor(selectedMaterialObj.color_or_image) ? selectedMaterialObj.color_or_image : '#2e9cab' }">
+          </span>
+          <select :class="formStyles.select" v-model="localMaterialId" @change="onCatalogMaterialChange">
+            <option :value="null">{{ materialsLoading ? 'Chargement…' : '— Choisir un filament —' }}</option>
+            <option v-for="m in supabaseMaterials" :key="m.id" :value="m.id">
+              {{ m.name }}{{ m.brand ? ' · ' + m.brand : '' }}
+            </option>
+            <option value="custom">Autre / personnalisé</option>
+          </select>
+        </div>
+        <p v-if="selectedMaterialObj" :class="formStyles.helpText">
+          {{ selectedMaterialObj.type }} · {{ selectedMaterialObj.cost_per_kg }}€/kg · Perte {{ selectedMaterialObj.default_waste_percentage }}%
+        </p>
+        <p v-else-if="!materialsLoading && !supabaseMaterials.length" :class="formStyles.helpText">
+          Catalogue non disponible — saisissez le coût manuellement
+        </p>
       </div>
+
+      <!-- Type de projet -->
       <div :class="formStyles.formGroup">
-        <label :class="formStyles.label" for="brand">Marque</label>
-        <select id="brand" :class="formStyles.select" :value="selectedBrand" @change="onBrandChange">
-          <option value="sunlu">SUNLU</option>
-          <option value="eryone">ERYONE</option>
-          <option value="bambu">Bambu Lab</option>
-          <option value="prusament">Prusament</option>
-          <option value="custom">Personnalisé</option>
-          <optgroup v-if="customBrands.length" label="─ Mes marques ─">
-            <option v-for="b in customBrands" :key="b.id" :value="b.id">{{ b.name }}</option>
-          </optgroup>
+        <label :class="formStyles.label">Type de projet</label>
+        <select :class="formStyles.select" :value="projectType" @change="$emit('update:projectType', $event.target.value)">
+          <option v-for="pt in projectTypes" :key="pt.id" :value="pt.id">{{ pt.label }}</option>
         </select>
+        <p v-if="projectCoeff !== 1" :class="formStyles.helpText">
+          Coefficient {{ projectCoeff > 1 ? '+' : '' }}{{ Math.round((projectCoeff - 1) * 100) }}% appliqué au prix final
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Matière personnalisée (si Autre sélectionné) -->
+    <div v-if="localMaterialId === 'custom'" class="grid-2">
+      <div :class="formStyles.formGroup">
+        <label :class="formStyles.label">Nom de la matière</label>
+        <input :class="formStyles.input" :value="material"
+          @input="$emit('update:material', $event.target.value)"
+          type="text" placeholder="Ex: Nylon, ABS…" />
       </div>
     </div>
 
@@ -44,7 +68,7 @@
           <span class="unit">€/kg</span>
         </div>
         <p :class="formStyles.helpText">
-          {{ selectedBrand !== 'custom' ? `Prix standard ${material} – ${brandLabels[selectedBrand] || selectedBrand}` : 'Prix personnalisé' }}
+          {{ selectedMaterialObj ? selectedMaterialObj.name + ' – ' + (selectedMaterialObj.brand || '') : 'Prix du filament au kilogramme' }}
         </p>
       </div>
       <div :class="formStyles.formGroup">
@@ -63,12 +87,9 @@
     <div :class="formStyles.formGroup">
       <label :class="formStyles.label">Nombre de couleurs</label>
       <div class="count-buttons">
-        <button
-          v-for="n in 4" :key="n"
-          type="button"
+        <button v-for="n in 4" :key="n" type="button"
           :class="['count-btn', colorCount === n && 'count-btn--active']"
-          @click="$emit('update:colorCount', n)"
-        >
+          @click="$emit('update:colorCount', n)">
           <span class="count-dot-row">
             <span v-for="i in n" :key="i" class="count-dot"></span>
           </span>
@@ -79,18 +100,19 @@
 
     <!-- Palette couleurs (si > 1 couleur) -->
     <div v-if="colorCount > 1" class="palette-block">
-      <p class="palette-title">Couleurs souhaitées <span class="palette-counter">{{ selectedColors.length }} / {{ colorCount }}</span></p>
+      <p class="palette-title">
+        Couleurs souhaitées
+        <span class="palette-counter">{{ selectedColors.length }} / {{ colorCount }}</span>
+      </p>
       <div class="palette-grid">
-        <button
-          v-for="c in colorPalette" :key="c.hex"
-          type="button"
+        <button v-for="c in colorPalette" :key="c.hex" type="button"
           :class="['swatch', selectedColors.includes(c.hex) && 'swatch--on']"
           :style="{ background: c.hex, border: c.hex === '#FFFFFF' ? '1.5px solid #e2e8f0' : 'none' }"
           :title="c.name"
           :disabled="!selectedColors.includes(c.hex) && selectedColors.length >= colorCount"
-          @click="toggleColor(c.hex)"
-        >
-          <span v-if="selectedColors.includes(c.hex)" class="swatch-check" :style="{ color: c.dark ? '#fff' : '#1b2f39' }">✓</span>
+          @click="toggleColor(c.hex)">
+          <span v-if="selectedColors.includes(c.hex)" class="swatch-check"
+                :style="{ color: c.dark ? '#fff' : '#1b2f39' }">✓</span>
         </button>
       </div>
       <p v-if="selectedColors.length > 0" class="palette-chosen">
@@ -126,111 +148,111 @@
       </div>
     </div>
 
-    <!-- Filament personnalisé -->
-    <div v-if="material === 'custom-material'" class="add-row">
-      <input :class="formStyles.input" v-model="newMaterial" type="text" placeholder="Ex: TPU, Nylon, ABS…" />
-      <button class="btn-add" @click="addMaterial">+ Ajouter</button>
-    </div>
-
-    <!-- Toggle ajouter une marque -->
-    <button class="toggle-link" @click="showBrandAdd = !showBrandAdd">
-      {{ showBrandAdd ? '− Masquer' : '+ Ajouter une marque' }}
-    </button>
-    <div v-if="showBrandAdd" class="add-row">
-      <input :class="formStyles.input" v-model="newBrand" type="text" placeholder="Ex: PRUSAMENT" />
-      <button class="btn-add" @click="addBrand">+ Ajouter</button>
-    </div>
-
   </div>
 </template>
 
 <script>
+import { supabase } from '../lib/supabase'
 import formStyles from '../styles/Form.module.css'
 
 export default {
   name: 'FilamentSection',
   props: {
-    material:    { type: String, default: 'PLA+' },
-    costPerKg:   { type: Number, default: 0 },
-    weight:      { type: Number, default: 0 },
-    lossPercent: { type: Number, default: 5 },
-    colorCount:  { type: Number, default: 1 },
-    purgeWaste:  { type: Number, default: 0 },
+    material:    { type: String,  default: 'PLA+' },
+    costPerKg:   { type: Number,  default: 0 },
+    weight:      { type: Number,  default: 0 },
+    lossPercent: { type: Number,  default: 5 },
+    colorCount:  { type: Number,  default: 1 },
+    purgeWaste:  { type: Number,  default: 0 },
+    projectType: { type: String,  default: 'standard' },
+    materialId:  { type: String,  default: null },
   },
-  emits: ['update:material', 'update:costPerKg', 'update:weight',
-          'update:lossPercent', 'update:colorCount', 'update:purgeWaste'],
+  emits: [
+    'update:material', 'update:costPerKg', 'update:weight',
+    'update:lossPercent', 'update:colorCount', 'update:purgeWaste',
+    'update:projectType', 'update:materialId',
+  ],
   data() {
     return {
       formStyles,
-      selectedBrand: 'sunlu',
-      newBrand: '',
-      newMaterial: '',
-      showBrandAdd: false,
-      showAdvanced: false,
-      selectedColors: [],
-      colorPalette: [
-        { hex: '#FFFFFF', name: 'Blanc',    dark: false },
-        { hex: '#1A1A1A', name: 'Noir',     dark: true  },
-        { hex: '#9E9E9E', name: 'Gris',     dark: true  },
-        { hex: '#F44336', name: 'Rouge',    dark: true  },
-        { hex: '#2196F3', name: 'Bleu',     dark: true  },
-        { hex: '#4CAF50', name: 'Vert',     dark: true  },
-        { hex: '#FFEB3B', name: 'Jaune',    dark: false },
-        { hex: '#FF9800', name: 'Orange',   dark: true  },
-        { hex: '#9C27B0', name: 'Violet',   dark: true  },
-        { hex: '#E91E63', name: 'Rose',     dark: true  },
-        { hex: '#D4A574', name: 'Beige',    dark: false },
-        { hex: '#00BCD4', name: 'Cyan',     dark: true  },
+      showAdvanced:      false,
+      selectedColors:    [],
+      supabaseMaterials: [],
+      materialsLoading:  false,
+      localMaterialId:   this.materialId,
+      projectTypes: [
+        { id: 'standard',    label: 'Standard (×1.0)',           coeff: 1.00 },
+        { id: 'figurine',    label: 'Figurine (+30%)',           coeff: 1.30 },
+        { id: 'serie',       label: 'Série porte-clés (−15%)',   coeff: 0.85 },
+        { id: 'cartevisite', label: 'Cartes de visite 3D (+5%)', coeff: 1.05 },
+        { id: 'standqr',     label: 'Stand QR Code (+10%)',      coeff: 1.10 },
+        { id: 'deco',        label: 'Décoration (×1.0)',         coeff: 1.00 },
       ],
-      brandLabels: { sunlu: 'SUNLU', eryone: 'ERYONE', bambu: 'Bambu Lab', prusament: 'Prusament', custom: 'Personnalisé' },
-      brandPrices: {
-        // Prix moyens Amazon France 2025 (1 kg)
-        sunlu:     { 'PLA+': 16.99, 'PLA+ 2.0': 19.99, PLA: 14.99, PETG: 17.99, ABS: 15.99, TPU: 21.99 },
-        eryone:    { 'PLA+': 16.99, 'PLA+ 2.0': 20.99, PLA: 14.99, PETG: 18.49, ABS: 15.99, TPU: 22.99 },
-        bambu:     { 'PLA+': 24.99, 'PLA+ 2.0': 26.99, PLA: 19.99, PETG: 23.99, ABS: 22.99, TPU: 27.99 },
-        prusament: { 'PLA+': 27.99, PLA: 24.99, PETG: 26.99, ABS: 25.99 },
-      },
-      customBrands: [],
-      customMaterials: [],
+      colorPalette: [
+        { hex: '#FFFFFF', name: 'Blanc',  dark: false },
+        { hex: '#1A1A1A', name: 'Noir',   dark: true  },
+        { hex: '#9E9E9E', name: 'Gris',   dark: true  },
+        { hex: '#F44336', name: 'Rouge',  dark: true  },
+        { hex: '#2196F3', name: 'Bleu',   dark: true  },
+        { hex: '#4CAF50', name: 'Vert',   dark: true  },
+        { hex: '#FFEB3B', name: 'Jaune',  dark: false },
+        { hex: '#FF9800', name: 'Orange', dark: true  },
+        { hex: '#9C27B0', name: 'Violet', dark: true  },
+        { hex: '#E91E63', name: 'Rose',   dark: true  },
+        { hex: '#D4A574', name: 'Beige',  dark: false },
+        { hex: '#00BCD4', name: 'Cyan',   dark: true  },
+      ],
+    }
+  },
+  computed: {
+    selectedMaterialObj() {
+      if (!this.localMaterialId || this.localMaterialId === 'custom') return null
+      return this.supabaseMaterials.find(m => m.id === this.localMaterialId) || null
+    },
+    projectCoeff() {
+      return this.projectTypes.find(p => p.id === this.projectType)?.coeff ?? 1
+    },
+  },
+  async mounted() {
+    this.materialsLoading = true
+    try {
+      const { data, error } = await supabase
+        .from('bambu_materials').select('*').order('created_at', { ascending: true })
+      if (!error && data?.length) {
+        this.supabaseMaterials = data
+        if (this.materialId && data.find(m => m.id === this.materialId)) {
+          this.localMaterialId = this.materialId
+        }
+      }
+    } finally {
+      this.materialsLoading = false
     }
   },
   methods: {
-    onMaterialChange(e) {
-      const v = e.target.value
-      if (v !== 'custom-material') this.$emit('update:material', v)
-      this.updatePrice()
-    },
-    onBrandChange(e) {
-      this.selectedBrand = e.target.value
-      this.updatePrice()
-    },
-    updatePrice() {
-      const prices = this.brandPrices[this.selectedBrand]
-      if (prices) {
-        const price = prices[this.material] || 19.99
-        this.$emit('update:costPerKg', price)
+    onCatalogMaterialChange() {
+      const mat = this.selectedMaterialObj
+      if (mat) {
+        this.$emit('update:materialId',  mat.id)
+        this.$emit('update:material',    mat.name)
+        this.$emit('update:costPerKg',   mat.cost_per_kg)
+        this.$emit('update:lossPercent', mat.default_waste_percentage)
+      } else {
+        this.$emit('update:materialId', null)
       }
     },
-    addBrand() {
-      if (!this.newBrand.trim()) return
-      const id = 'custom-' + Date.now()
-      this.customBrands.push({ id, name: this.newBrand.trim() })
-      this.brandLabels[id] = this.newBrand.trim()
-      this.newBrand = ''
-      this.showBrandAdd = false
+    isHexColor(val) {
+      return typeof val === 'string' && /^#[0-9A-Fa-f]{3,6}$/.test(val)
     },
-    addMaterial() {
-      if (!this.newMaterial.trim()) return
-      this.customMaterials.push({ id: 'mat-' + Date.now(), name: this.newMaterial.trim() })
-      this.$emit('update:material', this.newMaterial.trim())
-      this.newMaterial = ''
-      this.updatePrice()
+    isImageUrl(val) {
+      if (typeof val !== 'string' || !val.trim()) return false
+      return val.startsWith('http://') || val.startsWith('https://') ||
+        val.startsWith('data:image/') ||
+        /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(val)
     },
     toggleColor(hex) {
       const idx = this.selectedColors.indexOf(hex)
       if (idx === -1) {
-        if (this.selectedColors.length < this.colorCount)
-          this.selectedColors.push(hex)
+        if (this.selectedColors.length < this.colorCount) this.selectedColors.push(hex)
       } else {
         this.selectedColors.splice(idx, 1)
       }
@@ -238,9 +260,9 @@ export default {
   },
   watch: {
     colorCount(n) {
-      if (this.selectedColors.length > n)
-        this.selectedColors = this.selectedColors.slice(0, n)
+      if (this.selectedColors.length > n) this.selectedColors = this.selectedColors.slice(0, n)
     },
+    materialId(v) { this.localMaterialId = v },
   },
 }
 </script>
@@ -253,29 +275,29 @@ export default {
   margin-bottom: 0.5rem;
 }
 
+/* Indicateur visuel filament (swatch ou image) */
+.mat-select-row { display: flex; align-items: center; gap: 0.4rem; }
+.mat-select-row select { flex: 1; }
+.mat-indicator { flex-shrink: 0; }
+.mat-indicator--swatch {
+  display: inline-block; width: 18px; height: 18px; border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+.mat-indicator--img {
+  width: 22px; height: 22px; border-radius: 50%; object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
 .input-unit-wrap { display: flex; align-items: center; gap: 0.5rem; }
 .input-unit-wrap input { flex: 1; }
 .unit { font-size: 0.82rem; font-weight: 700; color: #4a5568; white-space: nowrap; }
 
 /* ── Boutons nombre de couleurs ── */
-.count-buttons {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
+.count-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .count-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.6rem 0.9rem;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  cursor: pointer;
-  font-family: inherit;
-  flex: 1;
-  min-width: 60px;
+  display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+  padding: 0.6rem 0.9rem; border: 1.5px solid #e2e8f0; border-radius: 12px;
+  background: #fff; cursor: pointer; font-family: inherit; flex: 1; min-width: 60px;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .count-btn:hover { border-color: #2e9cab; background: #f0fbfc; }
@@ -285,56 +307,29 @@ export default {
   box-shadow: 0 0 0 3px rgba(46,156,171,0.15);
 }
 .count-dot-row { display: flex; gap: 3px; }
-.count-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2e9cab;
-}
+.count-dot { width: 8px; height: 8px; border-radius: 50%; background: #2e9cab; }
 .count-btn--active .count-dot { background: #1f7f97; }
 .count-label { font-size: 0.7rem; font-weight: 700; color: #718096; }
 .count-btn--active .count-label { color: #1f7f97; }
 
 /* ── Palette couleurs ── */
 .palette-block {
-  padding: 0.85rem 1rem;
-  background: #f8fffe;
-  border: 1.5px solid #b2e8ef;
-  border-radius: 12px;
-  margin-bottom: 0.5rem;
+  padding: 0.85rem 1rem; background: #f8fffe;
+  border: 1.5px solid #b2e8ef; border-radius: 12px; margin-bottom: 0.5rem;
 }
 .palette-title {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #4a5568;
-  margin: 0 0 0.6rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  font-size: 0.75rem; font-weight: 700; color: #4a5568; margin: 0 0 0.6rem;
+  display: flex; align-items: center; gap: 0.4rem;
 }
 .palette-counter {
-  font-size: 0.68rem;
-  background: #2e9cab;
-  color: #fff;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  font-size: 0.68rem; background: #2e9cab; color: #fff;
+  padding: 0.1rem 0.45rem; border-radius: 999px;
 }
-.palette-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-bottom: 0.5rem;
-}
+.palette-grid { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.5rem; }
 .swatch {
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 50%;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  flex-shrink: 0;
+  width: 2.2rem; height: 2.2rem; border-radius: 50%; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease; flex-shrink: 0;
 }
 .swatch:hover:not(:disabled) { transform: scale(1.12); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 .swatch--on { box-shadow: 0 0 0 3px #2e9cab, 0 2px 8px rgba(0,0,0,0.15); transform: scale(1.08); }
@@ -344,45 +339,14 @@ export default {
 
 /* ── Options avancées ── */
 .toggle-link {
-  background: none;
-  border: none;
-  color: #a0aec0;
-  font-size: 0.78rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  padding: 0.25rem 0;
-  text-align: left;
-  transition: color 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  background: none; border: none; color: #a0aec0; font-size: 0.78rem; font-weight: 600;
+  font-family: inherit; cursor: pointer; padding: 0.25rem 0; text-align: left;
+  transition: color 0.2s ease; display: flex; align-items: center; gap: 0.35rem;
 }
 .toggle-link:hover { color: #2e9cab; }
 .advanced-hint { font-weight: 400; font-size: 0.74rem; }
 .advanced-block {
-  padding: 0.75rem 1rem;
-  background: #f7f9fc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  margin-bottom: 0.5rem;
+  padding: 0.75rem 1rem; background: #f7f9fc;
+  border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 0.5rem;
 }
-
-/* ── Ajouter ── */
-.add-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-.add-row input { flex: 1; }
-.btn-add {
-  padding: 0.5rem 1rem;
-  background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 0.82rem;
-  font-family: inherit;
-  white-space: nowrap;
-  transition: filter 0.2s ease;
-}
-.btn-add:hover { filter: brightness(1.07); }
 </style>

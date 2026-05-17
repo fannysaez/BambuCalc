@@ -780,12 +780,26 @@ export default {
 .modal-enter-from .modal-box, .modal-leave-to .modal-box { transform: scale(0.94) translateY(8px); }
 
 /* ── Responsive ── */
-@media (max-width: 640px) {
-  .dash-page { padding: 1rem 1rem 2rem; }
-  .stats-row { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 760px) {
+  /* Hide: Matière (col 4), Date (col 7) */
+  .quotes-table thead th:nth-child(4),
+  .quotes-table td:nth-child(4),
+  .quotes-table thead th:nth-child(7),
+  .quotes-table td:nth-child(7) { display: none; }
+}
+@media (max-width: 540px) {
+  .dash-page { padding: 0.75rem 0.75rem 2rem; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
   .dash-greeting { font-size: 1.1rem; }
+  .dash-hero { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .dash-hero-actions { width: 100%; justify-content: flex-end; }
+  .anon-banner { flex-wrap: wrap; gap: 0.5rem; }
+  .btn-link-toggle { width: 100%; }
+  /* Hide: Client (col 3), Matière (col 4), Date (col 7) */
   .quotes-table thead th:nth-child(3),
   .quotes-table td:nth-child(3),
+  .quotes-table thead th:nth-child(4),
+  .quotes-table td:nth-child(4),
   .quotes-table thead th:nth-child(7),
   .quotes-table td:nth-child(7) { display: none; }
 }

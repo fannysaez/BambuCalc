@@ -38,6 +38,7 @@ export const useCalculatorStore = defineStore('calculator', {
 
     // Projet
     projectName: '',
+    projectType: 'standard',
     quantity: 1,
     printProfile: 'normal',
     printerModel: 'p2s-combo',
@@ -49,6 +50,7 @@ export const useCalculatorStore = defineStore('calculator', {
     quoteNotes: '',
 
     // Matière
+    materialId: null,
     material: 'PLA+',
     costPerKg: 16.99,
     weight: 0,
@@ -93,13 +95,25 @@ export const useCalculatorStore = defineStore('calculator', {
       return state.clientName || ''
     },
 
-    // Indique si le numéro de devis a la date d'aujourd'hui
+    // Indique si le numéro de devis date d'un autre jour (SPA gardée ouverte la nuit)
     quoteNumberIsStale(state) {
       const today = new Date()
       const yy = today.getFullYear()
       const mm = String(today.getMonth() + 1).padStart(2, '0')
       const dd = String(today.getDate()).padStart(2, '0')
-      return !state.quoteNumber.startsWith(`DEV-${yy}${mm}${dd}`)
+      return !state.quoteNumber.includes(`${yy}${mm}${dd}`)
+    },
+
+    projectCoeff(state) {
+      const types = [
+        { id: 'standard',    coeff: 1.00 },
+        { id: 'figurine',    coeff: 1.30 },
+        { id: 'serie',       coeff: 0.85 },
+        { id: 'cartevisite', coeff: 1.05 },
+        { id: 'standqr',     coeff: 1.10 },
+        { id: 'deco',        coeff: 1.00 },
+      ]
+      return types.find(t => t.id === state.projectType)?.coeff ?? 1
     },
 
     calculatedCosts(state) {
@@ -166,10 +180,12 @@ export const useCalculatorStore = defineStore('calculator', {
         clientSiret:       '',
         clientVatNumber:   '',
         projectName:       '',
+        projectType:       'standard',
         quantity:          1,
         paymentMethod:     'virement',
         depositPercent:    0,
         quoteNotes:        '',
+        materialId:        null,
         material:          'PLA+',
         costPerKg:         16.99,
         weight:            0,

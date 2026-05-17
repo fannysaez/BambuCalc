@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf'
+import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { company } from '../config/company'
 
@@ -46,7 +46,8 @@ function paymentLabel(method) {
   return map[method] || method || 'Virement bancaire'
 }
 
-export function generateQuotePDF(quote) {
+// ── Constructeur interne (retourne le doc jsPDF sans déclencher le download) ──
+function _buildDoc(quote) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = 210
   const margin = 14
@@ -334,6 +335,28 @@ export function generateQuotePDF(quote) {
     W / 2, 290, { align: 'center' }
   )
 
-  // ── Sauvegarde ────────────────────────────────────────────
-  doc.save(`devis-${quote.quote_number || 'bambucalc'}.pdf`)
+  return doc
+}
+
+// ── Export : déclenche le téléchargement navigateur ──
+export function generateQuotePDF(quote) {
+  _buildDoc(quote).save(`devis-${quote.quote_number || 'bambucalc'}.pdf`)
+}
+
+// ── Export : retourne le doc jsPDF brut (pour encodage Base64 avant envoi mail) ──
+export function generateQuotePDFDoc(quote) {
+  return _buildDoc(quote)
+}
+
+// ── Export : convertit un doc jsPDF en chaîne Base64 pure (compatible jsPDF v4) ──
+// jsPDF v4 a supprimé output('datauristring') — on passe par ArrayBuffer.
+export function pdfToBase64(doc) {
+  const buffer = doc.output('arraybuffer')
+  const bytes  = new Uint8Array(buffer)
+  const CHUNK  = 0x8000 // 32 768 octets — évite les stack overflow sur gros fichiers
+  let binary   = ''
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return btoa(binary)
 }

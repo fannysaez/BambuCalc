@@ -71,6 +71,8 @@
           v-model:lossPercent="store.lossPercent"
           v-model:colorCount="store.colorCount"
           v-model:purgeWaste="store.purgeWaste"
+          v-model:projectType="store.projectType"
+          v-model:materialId="store.materialId"
         />
 
         <!-- Étape 3 — Temps -->
@@ -157,12 +159,13 @@ export default {
   },
   async created() {
     this.isAdmin = await checkIsAdmin()
-    // Régénère le numéro si le store date d'un autre jour (SPA en mémoire)
+    // Si la SPA est restée ouverte la nuit, remet un placeholder avec la date du jour
     if (!this.store.editingQuoteId && !this.$route.query.editId && this.store.quoteNumberIsStale) {
-      this.store.quoteNumber = this.store.quoteNumber.replace(
-        /DEV-\d{8}-/,
-        `DEV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-`,
-      )
+      const d  = new Date()
+      const yy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      this.store.quoteNumber = `DEV n° ${yy}${mm}${dd}-01`
     }
   },
   data() {
@@ -226,6 +229,31 @@ export default {
     goBack() {
       this.$router.push(`/calculator/${this.currentStep - 1}`)
     },
+    async generateSequentialQuoteNumber() {
+      const d     = new Date()
+      const yy    = d.getFullYear()
+      const mm    = String(d.getMonth() + 1).padStart(2, '0')
+      const dd    = String(d.getDate()).padStart(2, '0')
+      const dateStr = `${yy}${mm}${dd}`
+      const prefix  = `DEV n° ${dateStr}-`
+      try {
+        const { data } = await supabase
+          .from('quotes')
+          .select('quote_number')
+          .like('quote_number', `${prefix}%`)
+          .order('quote_number', { ascending: false })
+          .limit(1)
+        let counter = 1
+        if (data?.length) {
+          const numPart = parseInt(data[0].quote_number.split('-').pop()) || 0
+          counter = numPart + 1
+        }
+        return `${prefix}${String(counter).padStart(2, '0')}`
+      } catch {
+        return `${prefix}01`
+      }
+    },
+
     async saveQuote() {
       this.saving = true
       try {
@@ -234,6 +262,12 @@ export default {
         const displayName = s.clientType === 'particulier'
           ? [s.clientCivility, s.clientFirstName, s.clientLastName].filter(Boolean).join(' ')
           : s.clientName
+
+        const editId = s.editingQuoteId || this.$route.query.editId || null
+
+        // Génère le numéro séquentiel seulement pour un nouveau devis
+        const quoteNumber = editId ? s.quoteNumber : await this.generateSequentialQuoteNumber()
+        if (!editId) s.quoteNumber = quoteNumber
 
         let referenceImageUrl = ''
         if (s.referenceImage) {
@@ -249,7 +283,7 @@ export default {
         }
 
         const payload = {
-          quote_number: s.quoteNumber, quote_date: s.quoteDate,
+          quote_number: quoteNumber, quote_date: s.quoteDate,
           quote_validity_days: s.quoteValidityDays,
           payment_method: s.paymentMethod,
           deposit_percent: s.depositPercent,
@@ -269,6 +303,7 @@ export default {
           client_siret: s.clientSiret,
           client_vat_number: s.clientVatNumber,
           project_name: s.projectName, quantity: s.quantity,
+          project_type: s.projectType,
           print_profile: s.printProfile, printer_model: s.printerModel, nozzle_size: s.nozzleSize,
           material: s.material, cost_per_kg: s.costPerKg,
           weight: s.weight, loss_percent: s.lossPercent, color_count: s.colorCount, purge_waste: s.purgeWaste,
@@ -280,8 +315,6 @@ export default {
           work_cost: c.workCost, total_cost: c.totalCost, cost_per_unit: c.costPerUnit,
           reference_image_url: referenceImageUrl || null,
         }
-
-        const editId = s.editingQuoteId || this.$route.query.editId || null
 
         let savedQuote
         if (editId) {

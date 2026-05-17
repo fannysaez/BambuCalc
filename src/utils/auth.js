@@ -109,6 +109,18 @@ export async function getAllProfilesAdmin() {
   return data ?? []
 }
 
+export async function getAllQuotesAdminPaginated({ page = 1, perPage = 10 } = {}) {
+  const from = (page - 1) * perPage
+  const to   = from + perPage - 1
+  const { data, count, error } = await supabase
+    .from('quotes')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to)
+  if (error) throw error
+  return { quotes: data ?? [], total: count ?? 0 }
+}
+
 export async function adminDeleteQuote(id) {
   const { error } = await supabase.from('quotes').delete().eq('id', id)
   if (error) throw error

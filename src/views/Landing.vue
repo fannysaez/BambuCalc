@@ -17,12 +17,12 @@
       <div class="visual-illustration">
         <div class="visual-composition">
           <img
-            src="/imprimante 3d bambu lab P2S Combo.png"
-            alt="Imprimante 3D Bambu Lab P2S Combo"
+            src="/bambu lab P2S Combo.webp"
+            alt="Bambu Lab P2S Combo"
             class="visual-printer"
           />
           <img
-            src="/bambuLab Filament.png"
+            src="/bambuLab Filament.webp"
             alt="Illustration organique turquoise"
             class="visual-main"
           />
