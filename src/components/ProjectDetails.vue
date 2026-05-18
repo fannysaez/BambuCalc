@@ -143,7 +143,7 @@
     <!-- ── Section pièce & impression ── -->
     <div class="section-label">Pièce & impression</div>
 
-    <div class="grid-3">
+    <div class="grid-2">
       <div :class="formStyles.formGroup">
         <label :class="formStyles.label">Nom de la pièce</label>
         <input :class="formStyles.input" type="text" :value="projectName"
@@ -158,41 +158,6 @@
             min="1" step="1" />
           <span class="unit">unité(s)</span>
         </div>
-      </div>
-      <div :class="formStyles.formGroup">
-        <label :class="formStyles.label">Profil</label>
-        <select :class="formStyles.select" :value="printProfile"
-          @change="$emit('update:printProfile', $event.target.value)">
-          <option value="normal">Normal</option>
-          <option value="quality">Haute qualité</option>
-          <option value="speed">Vitesse rapide</option>
-          <option value="fine">Fin (détails)</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Champs techniques — visibles uniquement pour l'admin -->
-    <div v-if="showTechnicalFields" class="grid-2">
-      <div :class="formStyles.formGroup">
-        <label :class="formStyles.label">Imprimante</label>
-        <select :class="formStyles.select" :value="printerModel"
-          @change="$emit('update:printerModel', $event.target.value)">
-          <option value="p2s-combo">P2S Combo</option>
-          <option value="p2s-mono">P2S Monocouleur</option>
-          <option value="x1c">X1C</option>
-          <option value="a1-mini">A1 Mini</option>
-          <option value="a1">A1</option>
-        </select>
-      </div>
-      <div :class="formStyles.formGroup">
-        <label :class="formStyles.label">Buse</label>
-        <select :class="formStyles.select" :value="nozzleSize"
-          @change="$emit('update:nozzleSize', $event.target.value)">
-          <option value="0.2">0.2 mm</option>
-          <option value="0.4">0.4 mm</option>
-          <option value="0.6">0.6 mm</option>
-          <option value="0.8">0.8 mm</option>
-        </select>
       </div>
     </div>
 

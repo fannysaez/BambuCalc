@@ -39,6 +39,8 @@ export const useCalculatorStore = defineStore('calculator', {
     // Projet
     projectName: '',
     projectType: 'standard',
+    projectSeriesType: 'unique',
+    projectDescription: '',
     quantity: 1,
     printProfile: 'normal',
     printerModel: 'p2s-combo',
@@ -57,6 +59,7 @@ export const useCalculatorStore = defineStore('calculator', {
     lossPercent: 5,
     colorCount: 1,
     purgeWaste: 0,
+    amsCoefficient: 1.25,
 
     // Temps
     printHours: 0,
@@ -102,6 +105,11 @@ export const useCalculatorStore = defineStore('calculator', {
       const mm = String(today.getMonth() + 1).padStart(2, '0')
       const dd = String(today.getDate()).padStart(2, '0')
       return !state.quoteNumber.includes(`${yy}${mm}${dd}`)
+    },
+
+    purgeWeightAuto(state) {
+      if (Number(state.colorCount) <= 1) return 0
+      return Math.round((Number(state.weight) || 0) * ((Number(state.amsCoefficient) || 1.25) - 1))
     },
 
     projectCoeff(state) {
@@ -181,6 +189,8 @@ export const useCalculatorStore = defineStore('calculator', {
         clientVatNumber:   '',
         projectName:       '',
         projectType:       'standard',
+        projectSeriesType: 'unique',
+        projectDescription:'',
         quantity:          1,
         paymentMethod:     'virement',
         depositPercent:    0,
@@ -192,6 +202,7 @@ export const useCalculatorStore = defineStore('calculator', {
         lossPercent:       5,
         colorCount:        1,
         purgeWaste:        0,
+        amsCoefficient:    1.25,
         printHours:        0,
         printMinutes:      0,
         prepTime:          15,

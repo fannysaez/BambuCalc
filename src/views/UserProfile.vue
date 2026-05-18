@@ -196,21 +196,29 @@ function fmtDate(iso) {
           </div>
 
           <template v-if="!loading">
-            <div class="pp-field">
-              <label class="pp-field-label">Prénom</label>
-              <input class="pp-field-input" v-model="firstName" placeholder="Jean" />
-            </div>
-            <div class="pp-field">
-              <label class="pp-field-label">Nom</label>
-              <input class="pp-field-input" v-model="lastName" placeholder="Dupont" />
-            </div>
-            <div class="pp-field">
-              <label class="pp-field-label">Téléphone</label>
-              <input class="pp-field-input" type="tel" v-model="phone" placeholder="+33 6 00 00 00 00" />
-            </div>
-            <div class="pp-field">
-              <label class="pp-field-label">Entreprise</label>
-              <input class="pp-field-input" type="text" v-model="company" placeholder="Mon Entreprise SAS" />
+            <div class="pp-fields-grid">
+              <div class="pp-fields-group pp-fields-group--identity">
+                <p class="pp-group-label">Identité</p>
+                <div class="pp-field">
+                  <label class="pp-field-label">Prénom</label>
+                  <input class="pp-field-input" v-model="firstName" placeholder="Jean" />
+                </div>
+                <div class="pp-field">
+                  <label class="pp-field-label">Nom</label>
+                  <input class="pp-field-input" v-model="lastName" placeholder="Dupont" />
+                </div>
+              </div>
+              <div class="pp-fields-group pp-fields-group--contact">
+                <p class="pp-group-label">Contact</p>
+                <div class="pp-field">
+                  <label class="pp-field-label">Téléphone</label>
+                  <input class="pp-field-input" type="tel" v-model="phone" placeholder="+33 6 00 00 00 00" />
+                </div>
+                <div class="pp-field">
+                  <label class="pp-field-label">Entreprise</label>
+                  <input class="pp-field-input" type="text" v-model="company" placeholder="Mon Entreprise SAS" />
+                </div>
+              </div>
             </div>
             <button class="btn-save" @click="saveProfile" :disabled="saving">
               <Save class="btn-icon" /> {{ saving ? 'Sauvegarde…' : 'Sauvegarder le profil' }}
@@ -289,35 +297,59 @@ function fmtDate(iso) {
               <router-link to="/calculator/1" class="pp-cta">Créer mon premier devis</router-link>
             </div>
 
-            <div v-else class="pp-table-wrap">
-              <table class="pp-table">
-                <thead>
-                  <tr>
-                    <th>N° Devis</th>
-                    <th>Pièce</th>
-                    <th class="th-hide-sm">Matière</th>
-                    <th>Total TTC</th>
-                    <th>Statut</th>
-                    <th class="th-hide-sm">Date</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="q in paginatedQuotes" :key="q.id">
-                    <td class="td-num">{{ q.quote_number || '—' }}</td>
-                    <td class="td-name">{{ q.project_name || '—' }}</td>
-                    <td class="th-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
-                    <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
-                    <td><span :class="['st-badge', statusCls(q.status)]">{{ statusLabel(q.status) }}</span></td>
-                    <td class="td-date th-hide-sm">{{ fmtDate(q.created_at) }}</td>
-                    <td class="td-actions">
-                      <button class="btn-pdf" @click="generateQuotePDF(q)" title="Télécharger PDF">
-                        <Download class="action-icon" />
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div v-else class="pp-qlist-wrap">
+
+              <!-- Tableau — Desktop & Tablette -->
+              <div class="pp-qlist-table">
+                <table class="pp-table">
+                  <thead>
+                    <tr>
+                      <th>N° Devis</th>
+                      <th>Pièce</th>
+                      <th class="th-hide-sm">Matière</th>
+                      <th>Total TTC</th>
+                      <th>Statut</th>
+                      <th class="th-hide-sm">Date</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="q in paginatedQuotes" :key="q.id">
+                      <td class="td-num">{{ q.quote_number || '—' }}</td>
+                      <td class="td-name">{{ q.project_name || '—' }}</td>
+                      <td class="th-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
+                      <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
+                      <td><span :class="['st-badge', statusCls(q.status)]">{{ statusLabel(q.status) }}</span></td>
+                      <td class="td-date th-hide-sm">{{ fmtDate(q.created_at) }}</td>
+                      <td class="td-actions">
+                        <button class="btn-pdf" @click="generateQuotePDF(q)" title="Télécharger PDF">
+                          <Download class="action-icon" />
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Cartes — Mobile uniquement -->
+              <div class="pp-qlist-cards">
+                <div v-for="q in paginatedQuotes" :key="q.id" class="pqcard">
+                  <div class="pqcard-top">
+                    <span class="pqcard-name">{{ q.project_name || '—' }}</span>
+                    <span :class="['st-badge', statusCls(q.status)]">{{ statusLabel(q.status) }}</span>
+                  </div>
+                  <div class="pqcard-mid">
+                    <span class="pqcard-date">{{ fmtDate(q.created_at) }}</span>
+                    <span class="pqcard-total">{{ fmtEur(q.total_cost) }}</span>
+                  </div>
+                  <div class="pqcard-foot">
+                    <button class="btn-pdf pqcard-btn" @click="generateQuotePDF(q)" title="Télécharger PDF">
+                      <Download class="action-icon" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             <div v-if="totalProfilePages > 1" class="pp-pagination">
@@ -592,8 +624,33 @@ function fmtDate(iso) {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Table ── */
-.pp-table-wrap { flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto; }
+/* ── Quotes list dual-view (table desktop / cards mobile) ── */
+.pp-qlist-wrap  { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.pp-qlist-table { flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto; }
+.pp-qlist-cards { display: none; }
+
+/* ── Carte devis (mobile) ── */
+.pqcard {
+  display: flex; flex-direction: column; gap: 0.35rem;
+  padding: 0.85rem 1.1rem; border-bottom: 1px solid #f0f4f8;
+}
+.pqcard:last-child { border-bottom: none; }
+.pqcard-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 0.5rem;
+}
+.pqcard-name {
+  font-size: 0.95rem; font-weight: 800; color: #1b2f39;
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pqcard-mid {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 0.3rem; border-top: 1px solid #f0f4f8;
+}
+.pqcard-date  { font-size: 0.73rem; color: #a0aec0; }
+.pqcard-total { font-size: 1rem; font-weight: 800; color: #2e9cab; }
+.pqcard-foot  { display: flex; justify-content: flex-end; padding-top: 0.1rem; }
+.pqcard-btn   { width: 2.2rem !important; height: 2.2rem !important; border-radius: 10px !important; }
 .pp-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .pp-table thead th {
   padding: 0.5rem 0.8rem; text-align: left;
@@ -659,33 +716,140 @@ function fmtDate(iso) {
 .pp-pag-num:hover { border-color: #2e9cab; color: #2e9cab; }
 .pp-pag-num--active { border-color: #2e9cab; background: #e8f7f9; color: #2e9cab; }
 
-/* ── Mobile ≤900px : Master Box → colonnes empilées ── */
-@media (max-width: 900px) {
+/* ═══════════════════════════════════════════════════════════════════
+   PROFIL — Responsive
+   ≥ 1025px     : 3 colonnes desktop (défaut)
+   641 – 1024px : 2 colonnes tablette (identity | security+quotes)
+   ≤ 640px      : 1 colonne mobile empilée
+═══════════════════════════════════════════════════════════════════ */
+
+/* Champs formulaire : grille par défaut (1 col desktop, surchargé ci-dessous) */
+.pp-fields-grid  { display: flex; flex-direction: column; gap: 0.85rem; }
+.pp-fields-group { display: flex; flex-direction: column; gap: 0.85rem; }
+.pp-group-label  { display: none; }
+
+/* ── Tablette (641px – 1024px) ── */
+@media (min-width: 641px) and (max-width: 1024px) {
   .pp-page {
-    height: auto; min-height: calc(100dvh - 4.5rem);
-    overflow: visible; padding: 0.75rem;
+    height: auto;
+    min-height: calc(100dvh - 4.5rem);
+    overflow: visible;
+    padding: 0.75rem;
     align-items: flex-start;
   }
-  .pp-master {
-    height: auto;
-    border-radius: 16px;
-  }
+  .pp-master { height: auto; border-radius: 16px; }
   .pp-banner { height: 5rem; border-radius: 16px 16px 0 0; }
   .pp-master-nav { margin-top: -1.2rem; }
+
+  /* Grille 2 colonnes : identity (gauche) | security+quotes (droite empilés) */
   .pp-body {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-template-rows: auto auto;
     overflow: visible;
   }
-  .pp-col { overflow-y: visible; }
+  .pp-col--identity {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    border-right: 1px solid #f0f4f8;
+    border-bottom: none;
+    overflow-y: visible;
+  }
+  .pp-col--security {
+    grid-column: 2;
+    grid-row: 1;
+    border-right: none;
+    border-bottom: 1px solid #f0f4f8;
+    overflow-y: visible;
+  }
+  .pp-col--quotes {
+    grid-column: 2;
+    grid-row: 2;
+    overflow: visible;
+    min-height: 22rem;
+  }
+  .pp-col         { overflow-y: visible; }
+  .pp-quotes-card { min-height: 18rem; }
+  .pp-stats       { grid-template-columns: repeat(2, 1fr); }
+  .th-hide-sm     { display: none; }
+
+  /* Sous-grille 2 colonnes pour les champs du formulaire */
+  .pp-fields-grid  { display: flex; flex-direction: column; gap: 0.75rem; }
+  .pp-fields-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+}
+
+/* ── Mobile (≤ 640px) ── */
+@media (max-width: 640px) {
+  /* ─ Layout page ─ */
+  .pp-page {
+    height: auto;
+    min-height: calc(100dvh - 4.5rem);
+    overflow: visible;
+    padding: 0.5rem;
+    align-items: flex-start;
+  }
+  .pp-master { height: auto; border-radius: 16px; }
+
+  /* ─ En-tête ultra-compact ─ */
+  .pp-banner     { height: 3.5rem; border-radius: 16px 16px 0 0; }
+  .pp-master-nav { margin-top: -1.5rem; padding: 0 0.85rem 0.85rem; gap: 0.65rem; }
+  .pp-avatar     { width: 3.5rem; height: 3.5rem; font-size: 0.95rem; }
+  .pp-name       { font-size: 0.95rem; }
+
+  /* ─ Corps : 1 colonne empilée ─ */
+  .pp-body { grid-template-columns: 1fr; overflow: visible; }
+  .pp-col  { overflow-y: visible; padding: 1rem 0.85rem; gap: 0.75rem; }
   .pp-col--identity,
   .pp-col--security { border-right: none; border-bottom: 1px solid #f0f4f8; }
-  .pp-col--quotes   { overflow: visible; min-height: 24rem; }
-  .pp-quotes-card   { min-height: 20rem; }
-  .pp-stats { grid-template-columns: repeat(2, 1fr); }
-  .th-hide-sm { display: none; }
-}
-@media (max-width: 480px) {
-  .pp-page  { padding: 0.5rem; }
-  .pp-stats { gap: 0.45rem; }
+  .pp-col--quotes   { overflow: visible; min-height: 18rem; padding: 1rem 0.85rem; }
+  .pp-quotes-card   { min-height: 16rem; }
+  .pp-stats         { grid-template-columns: repeat(2, 1fr); gap: 0.45rem; }
+  .th-hide-sm       { display: none; }
+
+  /* ─ Grille hybride de champs ─ */
+  .pp-fields-grid { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  /* Chaque groupe = tuile blanche avec grille 2 colonnes (style dashboard) */
+  .pp-fields-group {
+    background: #fff;
+    border: 1px solid #f0f4f8;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    padding: 0.9rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem 0.7rem;
+  }
+  /* Titre de tuile : span toute la largeur */
+  .pp-group-label {
+    display: block;
+    grid-column: 1 / -1;
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #a0aec0;
+    margin: 0 0 0.05rem;
+  }
+  /* Identité : Prénom | Nom côte à côte (1 col chacun) */
+  /* Contact  : champs en pleine largeur */
+  .pp-fields-group--contact .pp-field { grid-column: 1 / -1; }
+
+  /* Inputs format app native */
+  .pp-field-input { padding: 0.42rem 0.65rem; font-size: 0.82rem; }
+
+  /* ─ Boutons d'action ─ */
+  .btn-save    { width: 100%; justify-content: center; align-self: stretch; padding: 0.65rem; }
+  .btn-outline { width: 100%; justify-content: center; align-self: stretch; }
+
+  /* Déconnexion : isolée tout en bas */
+  .btn-logout  { width: 100%; justify-content: center; align-self: stretch; margin-top: 2rem; }
+
+  /* ─ Section devis : cartes sur mobile ─ */
+  .pp-qlist-table { display: none; }
+  .pp-qlist-cards {
+    display: flex; flex-direction: column;
+    flex: 1; min-height: 0; overflow-y: auto;
+  }
 }
 </style>

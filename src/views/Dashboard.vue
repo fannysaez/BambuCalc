@@ -108,42 +108,70 @@
         <router-link to="/calculator/1" class="btn-new btn-new--sm">Créer un devis</router-link>
       </div>
 
-      <!-- Table -->
-      <div v-else class="quotes-table-wrap">
-        <table class="quotes-table">
-          <thead>
-            <tr>
-              <th>N° Devis</th>
-              <th>Pièce</th>
-              <th>Client</th>
-              <th>Matière</th>
-              <th>Total TTC</th>
-              <th>Statut</th>
-              <th>Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="q in quotes" :key="q.id">
-              <td class="td-num">{{ q.quote_number || '—' }}</td>
-              <td class="td-name">{{ q.project_name || '—' }}</td>
-              <td class="td-client">{{ q.client_name || '—' }}</td>
-              <td><span class="mat-tag">{{ q.material || '—' }}</span></td>
-              <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
-              <td><span :class="['status-badge', 'status-' + (q.status || 'pending')]">{{ statusLabel(q.status) }}</span></td>
-              <td class="td-date">{{ fmtDate(q.created_at) }}</td>
-              <td class="td-actions">
-                <button class="btn-pdf" @click="downloadPDF(q)" title="Télécharger le devis PDF">
-                  <Download class="del-icon" />
-                </button>
-                <button class="btn-del" @click="confirmDelete(q)" title="Supprimer">
-                  <Trash2 class="del-icon" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- Vue Tableau (≥641px) / Vue Cartes (≤640px) -->
+      <template v-else>
+        <!-- Tableau — Desktop & Tablette -->
+        <div class="dq-table-view">
+          <table class="quotes-table">
+            <thead>
+              <tr>
+                <th>N° Devis</th>
+                <th>Pièce</th>
+                <th>Client</th>
+                <th>Matière</th>
+                <th>Total TTC</th>
+                <th>Statut</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="q in quotes" :key="q.id">
+                <td class="td-num">{{ q.quote_number || '—' }}</td>
+                <td class="td-name">{{ q.project_name || '—' }}</td>
+                <td class="td-client">{{ q.client_name || '—' }}</td>
+                <td><span class="mat-tag">{{ q.material || '—' }}</span></td>
+                <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
+                <td><span :class="['status-badge', 'status-' + (q.status || 'pending')]">{{ statusLabel(q.status) }}</span></td>
+                <td class="td-date">{{ fmtDate(q.created_at) }}</td>
+                <td class="td-actions">
+                  <button class="btn-pdf" @click="downloadPDF(q)" title="Télécharger le devis PDF">
+                    <Download class="del-icon" />
+                  </button>
+                  <button class="btn-del" @click="confirmDelete(q)" title="Supprimer">
+                    <Trash2 class="del-icon" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Cartes — Mobile (≤640px) -->
+        <div class="dq-cards-view">
+          <div v-for="q in quotes" :key="q.id" class="dqcard">
+            <div class="dqcard-top">
+              <div class="dqcard-left">
+                <p class="dqcard-name">{{ q.project_name || '—' }}</p>
+                <p class="dqcard-num">{{ q.quote_number || '—' }}</p>
+              </div>
+              <span :class="['status-badge', 'status-' + (q.status || 'pending')]">{{ statusLabel(q.status) }}</span>
+            </div>
+            <div class="dqcard-mid">
+              <span class="dqcard-date">{{ fmtDate(q.created_at) }}</span>
+              <span class="dqcard-total">{{ fmtEur(q.total_cost) }}</span>
+            </div>
+            <div class="dqcard-foot">
+              <button class="btn-pdf dqcard-btn" @click="downloadPDF(q)" title="Télécharger PDF">
+                <Download class="del-icon" />
+              </button>
+              <button class="btn-del dqcard-btn" @click="confirmDelete(q)" title="Supprimer">
+                <Trash2 class="del-icon" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- Modal confirmation suppression -->
@@ -779,15 +807,24 @@ export default {
 .modal-enter-active .modal-box, .modal-leave-active .modal-box { transition: transform 0.2s ease; }
 .modal-enter-from .modal-box, .modal-leave-to .modal-box { transform: scale(0.94) translateY(8px); }
 
-/* ── Responsive ── */
-@media (max-width: 760px) {
-  /* Hide: Matière (col 4), Date (col 7) */
+/* ═══════════════════════════════════════════════════════════════════
+   LISTE DES DEVIS — Responsive
+   ≥ 641px : tableau (dq-table-view visible, dq-cards-view caché)
+   ≤ 640px : cartes (dq-cards-view visible, dq-table-view caché)
+═══════════════════════════════════════════════════════════════════ */
+.dq-table-view { display: block; }
+.dq-cards-view { display: none; }
+
+/* Tablette portrait (641–760px) : masque Matière + Date dans le tableau */
+@media (min-width: 641px) and (max-width: 760px) {
   .quotes-table thead th:nth-child(4),
   .quotes-table td:nth-child(4),
   .quotes-table thead th:nth-child(7),
   .quotes-table td:nth-child(7) { display: none; }
 }
-@media (max-width: 540px) {
+
+/* Mobile (≤ 640px) : cartes à la place du tableau */
+@media (max-width: 640px) {
   .dash-page { padding: 0.75rem 0.75rem 2rem; }
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
   .dash-greeting { font-size: 1.1rem; }
@@ -795,12 +832,63 @@ export default {
   .dash-hero-actions { width: 100%; justify-content: flex-end; }
   .anon-banner { flex-wrap: wrap; gap: 0.5rem; }
   .btn-link-toggle { width: 100%; }
-  /* Hide: Client (col 3), Matière (col 4), Date (col 7) */
-  .quotes-table thead th:nth-child(3),
-  .quotes-table td:nth-child(3),
-  .quotes-table thead th:nth-child(4),
-  .quotes-table td:nth-child(4),
-  .quotes-table thead th:nth-child(7),
-  .quotes-table td:nth-child(7) { display: none; }
+
+  /* Bascule tableau → cartes */
+  .dq-table-view { display: none; }
+  .dq-cards-view {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.75rem 0.75rem;
+    gap: 0;
+  }
+
+  /* Carte individuelle */
+  .dqcard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.9rem 0.25rem;
+    border-bottom: 1px solid #f0f4f8;
+  }
+  .dqcard:last-child { border-bottom: none; }
+
+  /* Ligne 1 : pièce + numéro / badge statut */
+  .dqcard-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .dqcard-left { flex: 1; min-width: 0; }
+  .dqcard-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1b2f39;
+    margin: 0 0 0.12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dqcard-num {
+    font-size: 0.7rem;
+    font-family: 'Courier New', monospace;
+    color: #a0aec0;
+    margin: 0;
+  }
+
+  /* Ligne 2 : date + montant */
+  .dqcard-mid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.4rem;
+    border-top: 1px solid #f0f4f8;
+  }
+  .dqcard-date  { font-size: 0.78rem; color: #718096; }
+  .dqcard-total { font-size: 1rem; font-weight: 800; color: #2e9cab; }
+
+  /* Ligne 3 : boutons d'action */
+  .dqcard-foot { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .dqcard-btn  { width: 38px !important; height: 38px !important; border-radius: 10px !important; }
 }
 </style>

@@ -1,15 +1,20 @@
 <template>
   <div class="step-page">
 
-    <!-- Stepper -->
+    <!-- ── Stepper horizontal ── -->
     <div class="stepper">
       <div class="stepper-track">
         <div v-for="(s, i) in steps" :key="s.step" class="step-item">
           <div v-if="i > 0" :class="['step-line', currentStep > s.step - 1 && 'step-line-done']"></div>
-          <div :class="['step-dot', currentStep === s.step && 'dot-active', currentStep > s.step && 'dot-done']">
+          <button
+            type="button"
+            :class="['step-dot', currentStep === s.step && 'dot-active', currentStep > s.step && 'dot-done']"
+            :disabled="s.step > currentStep"
+            @click="navigateToStep(s.step)"
+          >
             <component v-if="currentStep <= s.step" :is="s.icon" class="dot-icon" />
             <span v-else class="dot-check">✓</span>
-          </div>
+          </button>
           <span :class="['step-label', currentStep === s.step && 'label-active', currentStep > s.step && 'label-done']">
             {{ s.label }}
           </span>
@@ -17,124 +22,212 @@
       </div>
     </div>
 
-    <!-- Contenu de l'étape -->
-    <div class="step-card">
-      <div class="step-card-header">
-        <component :is="currentStepDef.icon" class="step-card-icon" />
-        <div>
-          <p class="step-card-eyebrow">Étape {{ currentStep }} / {{ steps.length }}</p>
-          <h2 class="step-card-title">{{ currentStepDef.label }}</h2>
-          <p class="step-card-desc">{{ currentStepDef.description }}</p>
+    <!-- ── Contenu de l'étape ── -->
+    <div class="content-area">
+
+      <!-- Carte de l'étape -->
+      <div class="step-card">
+
+        <div class="step-card-header">
+          <div class="step-card-icon-wrap">
+            <component :is="currentStepDef.icon" class="step-card-icon" />
+          </div>
+          <div>
+            <p class="step-card-eyebrow">Étape {{ currentStep }} / {{ steps.length }}</p>
+            <h2 class="step-card-title">{{ currentStepDef.label }}</h2>
+            <p class="step-card-desc">{{ currentStepDef.description }}</p>
+          </div>
+        </div>
+
+        <div class="step-card-body">
+
+          <!-- ── ÉTAPE 1 : IDENTIQUE POUR TOUS ── -->
+          <ProjectMatter
+            v-if="currentStep === 1"
+            v-model:projectSeriesType="store.projectSeriesType"
+            v-model:projectDescription="store.projectDescription"
+            v-model:quantity="store.quantity"
+            v-model:material="store.material"
+            v-model:costPerKg="store.costPerKg"
+            v-model:lossPercent="store.lossPercent"
+            v-model:colorCount="store.colorCount"
+            v-model:purgeWaste="store.purgeWaste"
+            v-model:materialId="store.materialId"
+          />
+
+          <!-- ── ÉTAPES 2-5 ADMIN ── -->
+          <template v-if="isAdmin && currentStep > 1">
+            <ProjectDetails
+              v-if="currentStep === 2"
+              :quoteNumber="store.quoteNumber"
+              :quoteDate="store.quoteDate"
+              v-model:quoteValidityDays="store.quoteValidityDays"
+              v-model:clientType="store.clientType"
+              v-model:clientCivility="store.clientCivility"
+              v-model:clientFirstName="store.clientFirstName"
+              v-model:clientLastName="store.clientLastName"
+              v-model:clientName="store.clientName"
+              v-model:clientContactName="store.clientContactName"
+              v-model:clientEmail="store.clientEmail"
+              v-model:clientPhone="store.clientPhone"
+              v-model:clientAddress="store.clientAddress"
+              v-model:clientPostalCode="store.clientPostalCode"
+              v-model:clientCity="store.clientCity"
+              v-model:clientCountry="store.clientCountry"
+              v-model:clientSiret="store.clientSiret"
+              v-model:clientVatNumber="store.clientVatNumber"
+              v-model:quantity="store.quantity"
+              v-model:projectName="store.projectName"
+              v-model:printProfile="store.printProfile"
+              v-model:printerModel="store.printerModel"
+              v-model:nozzleSize="store.nozzleSize"
+              :showTechnicalFields="true"
+              v-model:referenceImage="store.referenceImage"
+              v-model:referenceImageUrl="store.referenceImageUrl"
+              v-model:paymentMethod="store.paymentMethod"
+              v-model:depositPercent="store.depositPercent"
+              v-model:quoteNotes="store.quoteNotes"
+            />
+            <PrintingTime
+              v-if="currentStep === 3"
+              v-model:printHours="store.printHours"
+              v-model:printMinutes="store.printMinutes"
+              v-model:prepTime="store.prepTime"
+              v-model:postTime="store.postTime"
+              v-model:hourlyRate="store.hourlyRate"
+              v-model:weight="store.weight"
+              v-model:purgeWaste="store.purgeWaste"
+              :colorCount="store.colorCount"
+              :isAdmin="true"
+            />
+            <PricingSuggestions
+              v-if="currentStep === 4"
+              :baseCost="store.calculatedCosts.totalCost"
+              :baseCostPerUnit="store.calculatedCosts.costPerUnit"
+              :seriesQuantity="store.quantity"
+              :volumeDiscount="0"
+              :taxRate="store.taxRate"
+              v-model:selectedPricing="store.selectedPricing"
+              v-model:customMargin="store.customMargin"
+            />
+            <CostBreakdown
+              v-if="currentStep === 5"
+              :costs="store.calculatedCosts"
+              :isAdmin="true"
+            />
+          </template>
+
+          <!-- ── ÉTAPES 2-4 CLIENT ── -->
+          <template v-if="!isAdmin && currentStep > 1">
+
+            <!-- Étape 2 : Poids + Quantité -->
+            <div v-if="currentStep === 2" class="client-step2">
+              <div class="qty-block">
+                <p class="qty-title">Quantité souhaitée</p>
+                <div class="qty-buttons">
+                  <button v-for="q in quantityPresets" :key="q.value" type="button"
+                    :class="['qty-btn', store.quantity === q.value && 'qty-btn--active']"
+                    @click="store.quantity = q.value">
+                    {{ q.label }}
+                  </button>
+                </div>
+                <p class="qty-hint">Le tarif sera ajusté en fonction du nombre de pièces.</p>
+              </div>
+              <PrintingTime
+                v-model:weight="store.weight"
+                v-model:purgeWaste="store.purgeWaste"
+                :colorCount="store.colorCount"
+                :isAdmin="false"
+              />
+            </div>
+
+            <!-- Étape 3 : Coordonnées -->
+            <ClientInfo
+              v-if="currentStep === 3"
+              v-model:clientFirstName="store.clientFirstName"
+              v-model:clientLastName="store.clientLastName"
+              v-model:clientEmail="store.clientEmail"
+              v-model:clientPhone="store.clientPhone"
+              v-model:clientAddress="store.clientAddress"
+              v-model:clientPostalCode="store.clientPostalCode"
+              v-model:clientCity="store.clientCity"
+              v-model:clientCountry="store.clientCountry"
+              v-model:paymentMethod="store.paymentMethod"
+            />
+
+            <!-- Étape 4 : Confirmation (sans aucun détail de coût) -->
+            <div v-if="currentStep === 4" class="client-confirm">
+              <div class="confirm-hero">
+                <span class="confirm-emoji">✅</span>
+                <p class="confirm-title">Prêt à envoyer votre demande !</p>
+                <p class="confirm-sub">
+                  Votre devis personnalisé sera envoyé à
+                  <strong>{{ store.clientEmail || '—' }}</strong> sous 24-48h.
+                </p>
+              </div>
+              <div class="confirm-rows">
+                <div class="confirm-row">
+                  <span class="confirm-key">Type de projet</span>
+                  <span class="confirm-val">{{ projectSeriesTypeLabel }}</span>
+                </div>
+                <div v-if="store.projectDescription" class="confirm-row">
+                  <span class="confirm-key">Description</span>
+                  <span class="confirm-val confirm-val--desc">{{ store.projectDescription }}</span>
+                </div>
+                <div v-if="store.material" class="confirm-row">
+                  <span class="confirm-key">Matière</span>
+                  <span class="confirm-val">{{ store.material }}</span>
+                </div>
+                <div class="confirm-row">
+                  <span class="confirm-key">Quantité</span>
+                  <span class="confirm-val">{{ store.quantity }} pièce(s)</span>
+                </div>
+                <div v-if="store.colorCount > 1" class="confirm-row">
+                  <span class="confirm-key">Couleurs</span>
+                  <span class="confirm-val">{{ store.colorCount }} couleurs</span>
+                </div>
+              </div>
+              <p class="confirm-rgpd">
+                En envoyant cette demande, vous acceptez que vos données soient utilisées pour établir votre devis.
+              </p>
+            </div>
+
+          </template>
+
         </div>
       </div>
 
-      <div class="step-card-body">
-        <!-- Étape 1 — Projet -->
-        <ProjectDetails
-          v-if="currentStep === 1"
-          :quoteNumber="store.quoteNumber"
-          :quoteDate="store.quoteDate"
-          v-model:quoteValidityDays="store.quoteValidityDays"
-          v-model:clientType="store.clientType"
-          v-model:clientCivility="store.clientCivility"
-          v-model:clientFirstName="store.clientFirstName"
-          v-model:clientLastName="store.clientLastName"
-          v-model:clientName="store.clientName"
-          v-model:clientContactName="store.clientContactName"
-          v-model:clientEmail="store.clientEmail"
-          v-model:clientPhone="store.clientPhone"
-          v-model:clientAddress="store.clientAddress"
-          v-model:clientPostalCode="store.clientPostalCode"
-          v-model:clientCity="store.clientCity"
-          v-model:clientCountry="store.clientCountry"
-          v-model:clientSiret="store.clientSiret"
-          v-model:clientVatNumber="store.clientVatNumber"
-          v-model:quantity="store.quantity"
-          v-model:projectName="store.projectName"
-          v-model:printProfile="store.printProfile"
-          v-model:printerModel="store.printerModel"
-          v-model:nozzleSize="store.nozzleSize"
-          :showTechnicalFields="isAdmin"
-          v-model:referenceImage="store.referenceImage"
-          v-model:referenceImageUrl="store.referenceImageUrl"
-          v-model:paymentMethod="store.paymentMethod"
-          v-model:depositPercent="store.depositPercent"
-          v-model:quoteNotes="store.quoteNotes"
-        />
-
-        <!-- Étape 2 — Matière -->
-        <FilamentSection
-          v-if="currentStep === 2"
-          v-model:material="store.material"
-          v-model:costPerKg="store.costPerKg"
-          v-model:weight="store.weight"
-          v-model:lossPercent="store.lossPercent"
-          v-model:colorCount="store.colorCount"
-          v-model:purgeWaste="store.purgeWaste"
-          v-model:projectType="store.projectType"
-          v-model:materialId="store.materialId"
-        />
-
-        <!-- Étape 3 — Temps -->
-        <PrintingTime
-          v-if="currentStep === 3"
-          v-model:printHours="store.printHours"
-          v-model:printMinutes="store.printMinutes"
-          v-model:prepTime="store.prepTime"
-          v-model:postTime="store.postTime"
-          v-model:hourlyRate="store.hourlyRate"
-        />
-
-        <!-- Étape 4 — Tarifs -->
-        <PricingSuggestions
-          v-if="currentStep === 4"
-          :baseCost="store.calculatedCosts.totalCost"
-          :baseCostPerUnit="store.calculatedCosts.costPerUnit"
-          :seriesQuantity="store.quantity"
-          :volumeDiscount="0"
-          :taxRate="store.taxRate"
-          v-model:selectedPricing="store.selectedPricing"
-          v-model:customMargin="store.customMargin"
-        />
-
-        <!-- Étape 5 — Coûts -->
-        <CostBreakdown
-          v-if="currentStep === 5"
-          :costs="store.calculatedCosts"
-          :isAdmin="isAdmin"
-        />
+      <!-- ── Navigation bas ── -->
+      <div class="step-nav">
+        <button v-if="currentStep > 1" class="btn-back" @click="goBack">← Retour</button>
+        <div class="step-nav-right">
+          <button
+            v-if="currentStep < steps.length"
+            class="btn-next"
+            @click="goNext"
+          >
+            Suivant →
+          </button>
+          <button
+            v-if="currentStep === steps.length"
+            :class="['btn-save', saveStatus === 'ok' && 'btn-save-ok']"
+            :disabled="saving"
+            @click="saveQuote"
+          >
+            <span v-if="saving">Sauvegarde…</span>
+            <span v-else-if="saveStatus === 'ok'">
+              ✓ {{ isEditMode ? 'Devis mis à jour !' : (isAdmin ? 'Devis sauvegardé !' : 'Demande envoyée !') }}
+            </span>
+            <span v-else>
+              {{ isEditMode ? 'Mettre à jour le devis' : (isAdmin ? 'Sauvegarder le devis' : 'Envoyer ma demande') }}
+            </span>
+          </button>
+        </div>
       </div>
 
     </div>
 
-    <!-- Toast notifications -->
     <ToastMessage ref="toast" />
-
-    <!-- Navigation flottante sous la carte -->
-    <div class="step-nav">
-      <button v-if="currentStep > 1" class="btn-back" @click="goBack">
-        ← Retour
-      </button>
-      <div class="step-nav-right">
-        <button
-          v-if="currentStep < steps.length"
-          class="btn-next"
-          @click="goNext"
-        >
-          Suivant →
-        </button>
-        <button
-          v-if="currentStep === steps.length"
-          :class="['btn-save', saveStatus === 'ok' && 'btn-save-ok']"
-          :disabled="saving"
-          @click="saveQuote"
-        >
-          <span v-if="saving">Sauvegarde…</span>
-          <span v-else-if="saveStatus === 'ok'">✓ {{ isEditMode ? 'Devis mis à jour !' : (isAdmin ? 'Devis sauvegardé !' : 'Demande envoyée !') }}</span>
-          <span v-else>{{ isEditMode ? 'Mettre à jour le devis' : (isAdmin ? 'Sauvegarder le devis' : 'Envoyer ma demande') }}</span>
-        </button>
-      </div>
-    </div>
 
   </div>
 </template>
@@ -143,23 +236,32 @@
 import { useCalculatorStore } from '../stores/calculator'
 import { saveQuote as saveQuoteToDb, updateQuote, checkIsAdmin } from '../utils/auth'
 import { supabase } from '../lib/supabase'
-import ProjectDetails from '../components/ProjectDetails.vue'
-import FilamentSection from '../components/FilamentSection.vue'
-import PrintingTime from '../components/PrintingTime.vue'
+import ProjectDetails    from '../components/ProjectDetails.vue'
+import ProjectMatter     from '../components/ProjectMatter.vue'
+import ClientInfo        from '../components/ClientInfo.vue'
+import FilamentSection   from '../components/FilamentSection.vue'
+import PrintingTime      from '../components/PrintingTime.vue'
 import PricingSuggestions from '../components/PricingSuggestions.vue'
-import CostBreakdown from '../components/CostBreakdown.vue'
-import ToastMessage from '../components/ToastMessage.vue'
-import { Layers, Package, Clock, Tag, BarChart3 } from 'lucide-vue-next'
+import CostBreakdown     from '../components/CostBreakdown.vue'
+import ToastMessage      from '../components/ToastMessage.vue'
+import { Layers, Package, Clock, Tag, BarChart3, User, CheckCircle } from 'lucide-vue-next'
 
 export default {
   name: 'CalculatorStep',
-  components: { ProjectDetails, FilamentSection, PrintingTime, PricingSuggestions, CostBreakdown, ToastMessage, Layers, Package, Clock, Tag, BarChart3 },
+  components: {
+    ProjectDetails, ProjectMatter, ClientInfo, FilamentSection,
+    PrintingTime, PricingSuggestions, CostBreakdown, ToastMessage,
+    Layers, Package, Clock, Tag, BarChart3, User, CheckCircle,
+  },
   setup() {
     return { store: useCalculatorStore() }
   },
   async created() {
-    this.isAdmin = await checkIsAdmin()
-    // Si la SPA est restée ouverte la nuit, remet un placeholder avec la date du jour
+    try {
+      this.isAdmin = await checkIsAdmin()
+    } catch {
+      this.isAdmin = false
+    }
     if (!this.store.editingQuoteId && !this.$route.query.editId && this.store.quoteNumberIsStale) {
       const d  = new Date()
       const yy = d.getFullYear()
@@ -173,76 +275,114 @@ export default {
       isAdmin: false,
       saving: false,
       saveStatus: null,
-      steps: [
-        { step: 1, label: 'Projet',  icon: 'Layers',    description: "Nom du projet, imprimante et profil d'impression." },
-        { step: 2, label: 'Matière', icon: 'Package',   description: 'Type de filament, coût au kilo et poids estimé.' },
-        { step: 3, label: 'Temps',   icon: 'Clock',     description: "Durée d'impression et temps de travail manuel." },
-        { step: 4, label: 'Tarifs',  icon: 'Tag',       description: 'Choisissez votre marge et la tarification.' },
-        { step: 5, label: 'Coûts',   icon: 'BarChart3', description: 'Résumé complet des coûts et total TTC.' },
+      quantityPresets: [
+        { value: 1,   label: '1 — Unique' },
+        { value: 5,   label: '5' },
+        { value: 10,  label: '10' },
+        { value: 25,  label: '25' },
+        { value: 50,  label: '50' },
+        { value: 100, label: '100+' },
       ],
     }
   },
   computed: {
-    currentStep() { return Number(this.$route.params.step) || 1 },
+    currentStep()    { return Number(this.$route.params.step) || 1 },
     currentStepDef() { return this.steps[this.currentStep - 1] || this.steps[0] },
-    isEditMode() { return !!(this.store.editingQuoteId || this.$route.query.editId) },
+    isEditMode()     { return !!(this.store.editingQuoteId || this.$route.query.editId) },
+
+    projectSeriesTypeLabel() {
+      const labels = {
+        unique: 'Pièce unique', deco: 'Décoration',
+        portesCles: 'Porte-clés / Goodies', figurine: 'Figurine',
+        carteVisite: 'Carte de visite 3D', standQR: 'Stand / QR Code', autre: 'Autre',
+      }
+      return labels[this.store.projectSeriesType] || 'Projet'
+    },
+
+    steps() {
+      if (this.isAdmin) {
+        return [
+          { step: 1, label: 'Projet & Matière', icon: 'Package',    description: 'Type de projet, filament et couleurs.' },
+          { step: 2, label: 'Client & Pièce',   icon: 'Layers',     description: 'Informations client, nom de pièce et imprimante.' },
+          { step: 3, label: 'Temps',            icon: 'Clock',      description: "Durée d'impression et temps de travail." },
+          { step: 4, label: 'Tarifs',           icon: 'Tag',        description: 'Choisissez votre marge et la tarification.' },
+          { step: 5, label: 'Coûts',            icon: 'BarChart3',  description: 'Résumé complet des coûts et total TTC.' },
+        ]
+      }
+      return [
+        { step: 1, label: 'Projet & Matière', icon: 'Package',      description: 'Type de projet, filament et couleurs.' },
+        { step: 2, label: 'Poids & Quantité', icon: 'Clock',        description: 'Poids estimé et nombre de pièces souhaitées.' },
+        { step: 3, label: 'Vos coordonnées',  icon: 'User',         description: 'Vos informations pour recevoir le devis.' },
+        { step: 4, label: 'Confirmation',     icon: 'CheckCircle',  description: 'Récapitulatif et envoi de votre demande.' },
+      ]
+    },
+
   },
+
+  watch: {
+    'store.weight'()     { this.store.purgeWaste = this.store.purgeWeightAuto },
+    'store.colorCount'() { this.store.purgeWaste = this.store.purgeWeightAuto },
+  },
+
   methods: {
+    navigateToStep(step) {
+      if (step >= this.currentStep) return
+      this.$router.push(`/calculator/${step}`)
+    },
+
     validate() {
       const s = this.store
-      switch (this.currentStep) {
-        case 1: {
-          if (!s.projectName?.trim())
-            return 'Le nom de la pièce est obligatoire.'
-          const hasName = s.clientType === 'particulier'
-            ? (s.clientFirstName?.trim() || s.clientLastName?.trim())
-            : s.clientName?.trim()
-          if (!hasName)
-            return 'Le nom du client est obligatoire.'
-          return null
+      if (this.currentStep === 1) {
+        if (!s.costPerKg || s.costPerKg <= 0) return 'Veuillez sélectionner un filament.'
+        return null
+      }
+      if (this.isAdmin) {
+        switch (this.currentStep) {
+          case 2: {
+            if (!s.projectName?.trim()) return 'Le nom de la pièce est obligatoire.'
+            const hasName = s.clientType === 'particulier'
+              ? (s.clientFirstName?.trim() || s.clientLastName?.trim())
+              : s.clientName?.trim()
+            if (!hasName) return 'Le nom du client est obligatoire.'
+            return null
+          }
+          default: return null
         }
-        case 2:
-          if (!s.costPerKg || s.costPerKg <= 0)
-            return 'Le coût du filament au kg est obligatoire.'
-          return null
+      }
+      switch (this.currentStep) {
+        case 2: return null
         case 3:
+          if (!s.clientEmail?.trim()) return 'Votre adresse email est obligatoire pour recevoir le devis.'
           return null
-        default:
-          return null
+        case 4: return null
+        default: return null
       }
     },
+
     goNext() {
       const err = this.validate()
-      if (err) {
-        this.$refs.toast.show(err, 'error')
-        return
-      }
-      const messages = [
-        'Projet enregistré ✓',
-        'Matière enregistrée ✓',
-        'Temps enregistré ✓',
-        'Tarif sélectionné ✓',
-      ]
+      if (err) { this.$refs.toast.show(err, 'error'); return }
+      const messages = ['Projet enregistré ✓', 'Matière enregistrée ✓', 'Temps enregistré ✓', 'Tarif sélectionné ✓']
       this.$refs.toast.show(messages[this.currentStep - 1] || 'Étape validée ✓', 'success', 2000)
       this.$router.push(`/calculator/${this.currentStep + 1}`)
     },
+
     goBack() {
       this.$router.push(`/calculator/${this.currentStep - 1}`)
     },
+
     async generateSequentialQuoteNumber() {
-      const d     = new Date()
-      const yy    = d.getFullYear()
-      const mm    = String(d.getMonth() + 1).padStart(2, '0')
-      const dd    = String(d.getDate()).padStart(2, '0')
+      const d = new Date()
+      const yy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
       const dateStr = `${yy}${mm}${dd}`
       const prefix  = `DEV n° ${dateStr}-`
       try {
         const { data } = await supabase
-          .from('quotes')
-          .select('quote_number')
+          .from('quotes').select('quote_number')
           .like('quote_number', `${prefix}%`)
-          .order('quote_number', { ascending: false })
-          .limit(1)
+          .order('quote_number', { ascending: false }).limit(1)
         let counter = 1
         if (data?.length) {
           const numPart = parseInt(data[0].quote_number.split('-').pop()) || 0
@@ -264,18 +404,15 @@ export default {
           : s.clientName
 
         const editId = s.editingQuoteId || this.$route.query.editId || null
-
-        // Génère le numéro séquentiel seulement pour un nouveau devis
         const quoteNumber = editId ? s.quoteNumber : await this.generateSequentialQuoteNumber()
         if (!editId) s.quoteNumber = quoteNumber
 
         let referenceImageUrl = ''
         if (s.referenceImage) {
-          const ext = s.referenceImage.name.split('.').pop()
+          const ext  = s.referenceImage.name.split('.').pop()
           const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
           const { error: uploadError } = await supabase.storage
-            .from('quote-images')
-            .upload(path, s.referenceImage, { upsert: true })
+            .from('quote-images').upload(path, s.referenceImage, { upsert: true })
           if (!uploadError) {
             const { data: urlData } = supabase.storage.from('quote-images').getPublicUrl(path)
             referenceImageUrl = urlData.publicUrl
@@ -285,25 +422,18 @@ export default {
         const payload = {
           quote_number: quoteNumber, quote_date: s.quoteDate,
           quote_validity_days: s.quoteValidityDays,
-          payment_method: s.paymentMethod,
-          deposit_percent: s.depositPercent,
-          quote_notes: s.quoteNotes,
-          client_type: s.clientType,
-          client_civility: s.clientCivility,
-          client_first_name: s.clientFirstName,
-          client_last_name: s.clientLastName,
-          client_name: displayName,
-          client_contact_name: s.clientContactName,
-          client_email: s.clientEmail,
-          client_phone: s.clientPhone,
-          client_address: s.clientAddress,
-          client_postal_code: s.clientPostalCode,
-          client_city: s.clientCity,
-          client_country: s.clientCountry,
-          client_siret: s.clientSiret,
-          client_vat_number: s.clientVatNumber,
+          payment_method: s.paymentMethod, deposit_percent: s.depositPercent, quote_notes: s.quoteNotes,
+          client_type: s.clientType, client_civility: s.clientCivility,
+          client_first_name: s.clientFirstName, client_last_name: s.clientLastName,
+          client_name: displayName, client_contact_name: s.clientContactName,
+          client_email: s.clientEmail, client_phone: s.clientPhone,
+          client_address: s.clientAddress, client_postal_code: s.clientPostalCode,
+          client_city: s.clientCity, client_country: s.clientCountry,
+          client_siret: s.clientSiret, client_vat_number: s.clientVatNumber,
           project_name: s.projectName, quantity: s.quantity,
           project_type: s.projectType,
+          project_series_type: s.projectSeriesType || null,
+          project_description: s.projectDescription || null,
           print_profile: s.printProfile, printer_model: s.printerModel, nozzle_size: s.nozzleSize,
           material: s.material, cost_per_kg: s.costPerKg,
           weight: s.weight, loss_percent: s.lossPercent, color_count: s.colorCount, purge_waste: s.purgeWaste,
@@ -326,11 +456,10 @@ export default {
           savedQuote = await saveQuoteToDb(payload)
           this.$refs.toast.show(this.isAdmin ? 'Devis sauvegardé !' : 'Demande envoyée !', 'success')
           supabase.functions.invoke('send-quote-email', { body: { quote: savedQuote } }).catch(() => {})
-          // Remet le store à zéro pour éviter que les données client A se retrouvent dans le devis B
           setTimeout(() => s.resetForNewQuote(), 2000)
         }
         this.saveStatus = 'ok'
-      } catch (e) {
+      } catch {
         this.saveStatus = null
         this.$refs.toast.show('Erreur lors de la sauvegarde. Réessaie.', 'error')
       } finally {
@@ -342,6 +471,9 @@ export default {
 </script>
 
 <style scoped>
+/* ══════════════════════════════════════════════════
+   PAGE : layout principal
+══════════════════════════════════════════════════ */
 .step-page {
   position: fixed;
   inset: 0;
@@ -356,7 +488,7 @@ export default {
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
 }
 
-/* ── Stepper ── */
+/* ── Stepper horizontal ── */
 .stepper {
   width: 100%;
   max-width: 640px;
@@ -367,8 +499,6 @@ export default {
   border: 1px solid #e2e8f0;
   flex-shrink: 0;
 }
-
-.step-nav { flex-shrink: 0; }
 
 .stepper-track {
   display: flex;
@@ -410,8 +540,12 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  cursor: pointer;
+  font-family: inherit;
   transition: all 0.25s ease;
 }
+
+.step-dot:disabled { cursor: default; }
 
 .dot-active {
   border-color: #2e9cab;
@@ -425,47 +559,70 @@ export default {
   border-color: #2e9cab;
   background: #e8f7f9;
   color: #2e9cab;
+  cursor: pointer;
 }
 
-.dot-icon { width: 0.9rem; height: 0.9rem; }
+.dot-icon  { width: 0.9rem; height: 0.9rem; }
 .dot-check { font-size: 0.78rem; font-weight: 700; }
 
 .step-label { font-size: 0.68rem; font-weight: 600; color: #a0aec0; text-align: center; white-space: nowrap; }
 .label-active { color: #2e9cab; font-weight: 700; }
-.label-done { color: #1f7f97; }
+.label-done   { color: #1f7f97; }
+
+/* ── Zone de contenu ── */
+.content-area {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex-shrink: 0; /* ne grossit PAS — laisse justify-content: center agir */
+}
 
 /* ── Carte de l'étape ── */
 .step-card {
   width: 100%;
-  max-width: 640px;
   background: #fff;
   border-radius: 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.09);
   border: 1px solid #e2e8f0;
   overflow: hidden;
-  max-height: calc(100dvh - 180px);
   display: flex;
   flex-direction: column;
+  /* Hauteur max = viewport - stepper(~76px) - nav(~44px) - padding(28px) - gaps(24px) */
+  max-height: calc(100dvh - 172px);
+  flex-shrink: 1;
 }
 
 .step-card-header {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 1rem 1.25rem;
+  padding: 0.9rem 1.25rem;
   border-bottom: 1px solid #f0f4f8;
   background: linear-gradient(135deg, #f8fffe 0%, #fff 100%);
-}
-
-.step-card-icon {
-  width: 1.6rem;
-  height: 1.6rem;
-  color: #2e9cab;
   flex-shrink: 0;
 }
 
+.step-card-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e8f7f9 0%, #d0f0f5 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-card-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #2e9cab;
+}
+
 .step-card-eyebrow {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -474,7 +631,7 @@ export default {
 }
 
 .step-card-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
   color: #1b2f39;
   margin: 0 0 0.1rem;
@@ -482,14 +639,13 @@ export default {
 }
 
 .step-card-desc {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #718096;
   margin: 0;
   line-height: 1.4;
 }
 
 .step-card-body {
-  padding: 0;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -498,15 +654,15 @@ export default {
 
 .step-card-body::-webkit-scrollbar { display: none; }
 
-/* ── Navigation flottante ── */
+/* ── Navigation bas ── */
 .step-nav {
   width: 100%;
-  max-width: 640px;
+  max-width: 580px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0 0.25rem;
+  flex-shrink: 0;
 }
 
 .step-nav-right {
@@ -516,76 +672,151 @@ export default {
 }
 
 .btn-back {
-  padding: 0.6rem 1.1rem;
+  padding: 0.55rem 1.1rem;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 4px 14px rgba(29, 18, 43, 0.1);
+  background: rgba(255,255,255,0.88);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.09);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: #718096;
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   transition: all 0.2s ease;
+  border: 1px solid #e2e8f0;
 }
 
-.btn-back:hover { color: #2e9cab; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(29, 18, 43, 0.13); }
+.btn-back:hover { color: #2e9cab; transform: translateY(-1px); border-color: #b2e8ef; }
 
 .btn-next {
-  padding: 0.6rem 1.4rem;
+  padding: 0.55rem 1.35rem;
   border: none;
   border-radius: 999px;
   background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
   color: #fff;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: 0 4px 14px rgba(46,156,171,0.3);
+  box-shadow: 0 4px 14px rgba(46,156,171,0.35);
   transition: filter 0.2s ease, transform 0.2s ease;
 }
 
-.btn-next:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.btn-next:hover { filter: brightness(1.07); transform: translateY(-1px); }
 
 .btn-save {
-  padding: 0.6rem 1.4rem;
+  padding: 0.55rem 1.35rem;
   border: none;
   border-radius: 999px;
   background: linear-gradient(180deg, #3fb2bf 0%, #2e9cab 100%);
   color: #fff;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: 0 4px 14px rgba(46,156,171,0.3);
+  box-shadow: 0 4px 14px rgba(46,156,171,0.35);
   transition: filter 0.2s ease, transform 0.2s ease;
 }
 
-.btn-save:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+.btn-save:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
 .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
-
 .btn-save-ok {
   background: linear-gradient(180deg, #2ecc71 0%, #27ae60 100%);
-  box-shadow: 0 4px 14px rgba(39,174,96,0.3);
+  box-shadow: 0 4px 14px rgba(39,174,96,0.35);
 }
 
-.save-error {
-  margin: 0 1.5rem 1rem;
-  padding: 0.55rem 0.85rem;
-  border-radius: 0.4rem;
-  background: rgba(231,76,60,0.07);
-  border: 1px solid rgba(231,76,60,0.22);
-  color: #c0392b;
-  font-size: 0.82rem;
+/* ══════════════════════════════════════════════════
+   CLIENT STEP 2 : Quantité + Poids
+══════════════════════════════════════════════════ */
+.client-step2 { display: flex; flex-direction: column; }
+.qty-block { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f0f4f8; }
+.qty-title { font-size: 0.7rem; font-weight: 800; color: #4a5568; text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 0.65rem; }
+.qty-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.qty-btn {
+  padding: 0.45rem 0.9rem; border: 1.5px solid #e2e8f0; border-radius: 999px;
+  background: #fff; font-size: 0.82rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: all 0.18s ease; color: #4a5568;
 }
+.qty-btn:hover { border-color: #2e9cab; color: #2e9cab; }
+.qty-btn--active { border-color: #2e9cab; background: #2e9cab; color: #fff; }
+.qty-hint { font-size: 0.72rem; color: #a0aec0; margin: 0.45rem 0 0; }
 
+/* ══════════════════════════════════════════════════
+   CLIENT STEP 4 : Confirmation
+══════════════════════════════════════════════════ */
+.client-confirm { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+.confirm-hero { text-align: center; padding: 1rem 0 0.5rem; }
+.confirm-emoji { font-size: 2rem; display: block; margin-bottom: 0.5rem; }
+.confirm-title { font-size: 1rem; font-weight: 800; color: #1b2f39; margin: 0 0 0.3rem; }
+.confirm-sub { font-size: 0.82rem; color: #718096; margin: 0; }
+.confirm-rows { background: #f8fffe; border: 1.5px solid #b2e8ef; border-radius: 12px; overflow: hidden; }
+.confirm-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 1rem; border-bottom: 1px solid #e8f7f9; }
+.confirm-row:last-child { border-bottom: none; }
+.confirm-key { font-size: 0.78rem; font-weight: 600; color: #718096; flex-shrink: 0; }
+.confirm-val { font-size: 0.82rem; font-weight: 700; color: #1b2f39; text-align: right; }
+.confirm-val--desc { font-weight: 400; white-space: pre-wrap; word-break: break-word; }
+.confirm-rgpd { font-size: 0.68rem; color: #a0aec0; text-align: center; margin: 0; }
+
+/* ══════════════════════════════════════════════════
+   RESPONSIVE MOBILE (< 640px)
+══════════════════════════════════════════════════ */
 @media (max-width: 640px) {
-  .step-page { padding: 0.75rem 0.75rem 0.5rem; gap: 0.5rem; }
-  .step-card-header { padding: 0.75rem 1rem; }
+  .step-page { flex-direction: column; }
+
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+
+  .sidebar::before, .sidebar::after { display: none; }
+
+  .sidebar-brand { padding: 0; border-bottom: none; flex-shrink: 0; }
+  .brand-sub, .brand-text { display: none; }
+  .sidebar-logo-wrap { width: 28px; height: 28px; border-radius: 8px; }
+
+  .sidebar-steps {
+    flex: 1;
+    flex-direction: row;
+    padding: 0 0.75rem;
+    gap: 0;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+  }
+
+  .steps-track { display: none; }
+
+  .step-item {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.3rem 0.4rem;
+    flex: 1;
+    align-items: center;
+    border-radius: 8px;
+  }
+
+  .step-label-wrap { display: none; }
+  .active-pulse { display: none; }
+
+  .step-dot {
+    width: 26px;
+    height: 26px;
+  }
+
+  .sidebar-footer { display: none; }
+
+  .content-area { padding: 0.75rem 0.75rem 0.65rem; gap: 0.5rem; }
+  .step-card { max-height: calc(100dvh - 120px); border-radius: 16px; }
+  .step-card-header { padding: 0.7rem 1rem; gap: 0.65rem; }
+  .step-card-title { font-size: 0.92rem; }
   .step-nav { padding: 0; }
-  .stepper { padding: 0.75rem 1rem; }
-  .step-label { display: none; }
 }
 </style>

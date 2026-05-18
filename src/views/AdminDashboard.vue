@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-page" @click="dossierDropdownOpen = false">
+  <div class="admin-page" @click="dossierDropdownOpen = false; burgerOpen = false">
 
     <!-- Bannière décorative admin -->
     <div class="admin-banner" aria-hidden="true"></div>
@@ -51,6 +51,38 @@
           <p class="stat-label">Coût moyen</p>
         </div>
       </div>
+    </div>
+
+    <!-- ── Burger menu mobile (≤640px) — remplace la barre d'onglets ── -->
+    <div class="tabs-burger" @click.stop>
+      <button class="burger-trigger" @click="burgerOpen = !burgerOpen">
+        <component :is="currentTabIcon" class="burger-trigger-icon" />
+        <span class="burger-trigger-label">{{ currentTabLabel }}</span>
+        <ChevronDown :class="['burger-trigger-chevron', burgerOpen && 'burger-trigger-chevron--open']" />
+      </button>
+      <Transition name="dropdown">
+        <div v-if="burgerOpen" class="burger-menu">
+          <div class="burger-group-label">Clients &amp; Devis</div>
+          <button class="burger-item" :class="activeTab === 'clients' && 'burger-item--active'"
+            @click="activeTab = 'clients'; burgerOpen = false; dossierDropdownOpen = false">
+            <Users class="burger-item-icon" />Liste des clients
+            <span class="burger-item-count">{{ clientCount }}</span>
+          </button>
+          <button class="burger-item" :class="activeTab === 'quotes' && 'burger-item--active'"
+            @click="activeTab = 'quotes'; burgerOpen = false; dossierDropdownOpen = false">
+            <FileText class="burger-item-icon" />Tous les devis
+            <span class="burger-item-count">{{ quotes.length }}</span>
+          </button>
+          <div class="burger-sep" />
+          <button v-for="tab in tabs" :key="tab.id"
+            class="burger-item" :class="activeTab === tab.id && 'burger-item--active'"
+            @click="activeTab = tab.id; burgerOpen = false; dossierDropdownOpen = false">
+            <component :is="tab.icon" class="burger-item-icon" />
+            {{ tab.label }}
+            <span v-if="tab.count !== undefined" class="burger-item-count">{{ tab.count }}</span>
+          </button>
+        </div>
+      </Transition>
     </div>
 
     <!-- Onglets -->
@@ -192,72 +224,134 @@
         <p class="empty-title">Aucun devis</p>
       </div>
       <template v-else>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>N° Devis</th>
-                <th>Pièce</th>
-                <th class="th-hide-sm">Client</th>
-                <th class="th-hide-sm">Matière</th>
-                <th>Total TTC</th>
-                <th>Statut</th>
-                <th class="th-hide-md">Créé par</th>
-                <th class="th-hide-md">Date</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="q in paginatedQuotes" :key="q.id">
-                <td class="td-num">{{ q.quote_number || '—' }}</td>
-                <td class="td-name">{{ q.project_name || '—' }}</td>
-                <td class="td-client td-hide-sm">
-                  <button class="client-link" @click="goToClientQuotes(q.user_id)" title="Filtrer ce client">
-                    {{ q.client_name || '—' }}
-                  </button>
-                </td>
-                <td class="td-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
-                <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
-                <td>
-                  <select :class="['status-select', 'status-' + (q.status || 'pending')]"
-                    :value="q.status || 'pending'"
-                    @change="changeStatus(q, $event.target.value)">
-                    <option value="pending">En attente</option>
-                    <option value="sent">Envoyé</option>
-                    <option value="accepted">Accepté</option>
-                    <option value="refused">Refusé</option>
-                  </select>
-                </td>
-                <td class="td-creator td-hide-md">{{ creatorOf(q.user_id) }}</td>
-                <td class="td-date td-hide-md">{{ fmtDate(q.created_at) }}</td>
-                <td class="td-actions">
-                  <button class="btn-edit" @click="editQuote(q)" title="Compléter / modifier">
-                    <Pencil class="del-icon" />
-                  </button>
-                  <button class="btn-pdf" @click="generateQuotePDF(q)" title="Télécharger PDF">
-                    <Download class="del-icon" />
-                  </button>
-                  <button v-if="q.status === 'accepted' && q.client_email"
-                    class="btn-send-row" @click="sendTarget = q" title="Envoyer par e-mail">
-                    <Send class="del-icon" />
-                  </button>
-                  <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
-                    <Trash2 class="del-icon" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-if="totalQuotesPages > 1" class="pagination">
-          <button class="page-btn" :disabled="quotesPage === 1" @click="quotesPage--">← Précédent</button>
-          <div class="page-numbers">
-            <button v-for="p in totalQuotesPages" :key="p"
-              :class="['page-num', quotesPage === p && 'page-num--active']"
-              @click="quotesPage = p">{{ p }}</button>
+
+        <!-- ══ Vue Tableau — Desktop & Tablette (≥ 641 px) ══ -->
+        <div class="quotes-table-view">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>N° Devis</th>
+                  <th>Pièce</th>
+                  <th class="th-hide-sm">Client</th>
+                  <th class="th-hide-sm">Matière</th>
+                  <th>Total TTC</th>
+                  <th>Statut</th>
+                  <th class="th-hide-md">Créé par</th>
+                  <th class="th-hide-md">Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="q in paginatedQuotes" :key="q.id">
+                  <td class="td-num">{{ q.quote_number || '—' }}</td>
+                  <td class="td-name">{{ q.project_name || '—' }}</td>
+                  <td class="td-client td-hide-sm">
+                    <button class="client-link" @click="goToClientQuotes(q.user_id)" title="Filtrer ce client">
+                      {{ q.client_name || '—' }}
+                    </button>
+                  </td>
+                  <td class="td-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
+                  <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
+                  <td>
+                    <select :class="['status-select', 'status-' + (q.status || 'pending')]"
+                      :value="q.status || 'pending'"
+                      @change="changeStatus(q, $event.target.value)">
+                      <option value="pending">En attente</option>
+                      <option value="sent">Envoyé</option>
+                      <option value="accepted">Accepté</option>
+                      <option value="refused">Refusé</option>
+                    </select>
+                  </td>
+                  <td class="td-creator td-hide-md">{{ creatorOf(q.user_id) }}</td>
+                  <td class="td-date td-hide-md">{{ fmtDate(q.created_at) }}</td>
+                  <td class="td-actions">
+                    <button class="btn-edit" @click="editQuote(q)" title="Compléter / modifier">
+                      <Pencil class="del-icon" />
+                    </button>
+                    <button class="btn-pdf" @click="generateQuotePDF(q)" title="Télécharger PDF">
+                      <Download class="del-icon" />
+                    </button>
+                    <button v-if="q.status === 'accepted' && q.client_email"
+                      class="btn-send-row" @click="sendTarget = q" title="Envoyer par e-mail">
+                      <Send class="del-icon" />
+                    </button>
+                    <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
+                      <Trash2 class="del-icon" />
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <button class="page-btn" :disabled="quotesPage === totalQuotesPages" @click="quotesPage++">Suivant →</button>
+          <!-- Pagination compacte tableau -->
+          <div v-if="totalQuotesPages > 1" class="pagination quotes-pgn">
+            <button class="page-btn" :disabled="quotesPage === 1" @click="quotesPage--">← Préc.</button>
+            <span class="quotes-pgn-info">Page {{ quotesPage }} / {{ totalQuotesPages }}</span>
+            <button class="page-btn" :disabled="quotesPage === totalQuotesPages" @click="quotesPage++">Suiv. →</button>
+          </div>
         </div>
+
+        <!-- ══ Vue Cartes — Mobile (≤ 640 px) ══ -->
+        <div class="quotes-cards-view">
+          <div
+            v-for="q in paginatedQuotes"
+            :key="q.id"
+            class="qcard"
+          >
+            <!-- Ligne 1 : Nom du client + Badge statut -->
+            <div class="qcard-top">
+              <button class="qcard-client client-link" @click="goToClientQuotes(q.user_id)">
+                {{ q.client_name || '—' }}
+              </button>
+              <span :class="['qcard-badge', 'arch-status--' + (q.status || 'pending')]">
+                {{ { pending: 'En attente', sent: 'Envoyé', accepted: 'Accepté', refused: 'Refusé' }[q.status] || 'En attente' }}
+              </span>
+            </div>
+            <!-- Ligne 2 : Pièce + N° devis + Matière -->
+            <div class="qcard-meta">
+              <p class="qcard-piece">{{ q.project_name || '—' }}</p>
+              <p class="qcard-sub">
+                N°&nbsp;{{ q.quote_number || '—' }}
+                <span v-if="q.material" class="mat-tag">{{ q.material }}</span>
+              </p>
+            </div>
+            <!-- Ligne 3 : Date + Total TTC -->
+            <div class="qcard-row">
+              <span class="qcard-date">{{ fmtDate(q.created_at) }}</span>
+              <span class="qcard-total">{{ fmtEur(q.total_cost) }}</span>
+            </div>
+            <!-- Ligne 4 : Select statut + Boutons d'action -->
+            <div class="qcard-bottom">
+              <select
+                :class="['status-select', 'qcard-status-sel', 'status-' + (q.status || 'pending')]"
+                :value="q.status || 'pending'"
+                @change="changeStatus(q, $event.target.value)"
+              >
+                <option value="pending">En attente</option>
+                <option value="sent">Envoyé</option>
+                <option value="accepted">Accepté</option>
+                <option value="refused">Refusé</option>
+              </select>
+              <div class="qcard-actions">
+                <button class="btn-edit" @click="editQuote(q)" title="Modifier"><Pencil class="del-icon" /></button>
+                <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF"><Download class="del-icon" /></button>
+                <button v-if="q.status === 'accepted' && q.client_email"
+                  class="btn-send-row" @click="sendTarget = q" title="Envoyer par e-mail">
+                  <Send class="del-icon" />
+                </button>
+                <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer"><Trash2 class="del-icon" /></button>
+              </div>
+            </div>
+          </div>
+          <!-- Pagination compacte cartes -->
+          <div v-if="totalQuotesPages > 1" class="pagination quotes-pgn">
+            <button class="page-btn" :disabled="quotesPage === 1" @click="quotesPage--">← Préc.</button>
+            <span class="quotes-pgn-info">Page {{ quotesPage }} / {{ totalQuotesPages }}</span>
+            <button class="page-btn" :disabled="quotesPage === totalQuotesPages" @click="quotesPage++">Suiv. →</button>
+          </div>
+        </div>
+
       </template>
     </div>
 
@@ -489,68 +583,184 @@
           <p class="empty-hint">Créez votre premier devis depuis le calculateur.</p>
         </div>
         <template v-else>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>N° Devis</th>
-                  <th>Pièce</th>
-                  <th class="th-hide-sm">Client</th>
-                  <th class="th-hide-sm">Matière</th>
-                  <th>Total TTC</th>
-                  <th>Statut</th>
-                  <th class="th-hide-md">Date</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="q in paginatedManageQuotes" :key="q.id"
-                    :class="sendableQuotes.some(s => s.id === q.id) ? 'tr--sendable' : ''">
-                  <td class="td-num">{{ q.quote_number || '—' }}</td>
-                  <td class="td-name">{{ q.project_name || '—' }}</td>
-                  <td class="td-client td-hide-sm">{{ q.client_name || '—' }}</td>
-                  <td class="td-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
-                  <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
-                  <td>
-                    <select :class="['status-select', 'status-' + (q.status || 'pending')]"
-                      :value="q.status || 'pending'"
-                      @change="changeStatus(q, $event.target.value)">
-                      <option value="pending">En attente</option>
-                      <option value="sent">Envoyé</option>
-                      <option value="accepted">Accepté</option>
-                      <option value="refused">Refusé</option>
-                    </select>
-                  </td>
-                  <td class="td-date td-hide-md">{{ fmtDate(q.created_at) }}</td>
-                  <td class="td-actions">
-                    <button class="btn-edit" @click="editQuote(q)" title="Modifier">
-                      <Pencil class="del-icon" />
-                    </button>
-                    <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF">
-                      <Download class="del-icon" />
-                    </button>
-                    <button v-if="sendableQuotes.some(s => s.id === q.id)"
-                      class="btn-send-row"
-                      @click="selectedQuoteId = q.id; selectedQuote = q; managePage = 2"
-                      title="Transmettre par e-mail">
-                      <Send class="del-icon" />
-                    </button>
-                    <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
-                      <Trash2 class="del-icon" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-if="totalManagePages > 1" class="pagination">
-            <button class="page-btn" :disabled="managePaginePage === 1" @click="managePaginePage--">← Précédent</button>
-            <div class="page-numbers">
-              <button v-for="p in totalManagePages" :key="p"
-                :class="['page-num', managePaginePage === p && 'page-num--active']"
-                @click="managePaginePage = p">{{ p }}</button>
+          <!-- Vue Tableau — Desktop uniquement (≥1025px) -->
+          <div class="manage-table-view">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>N° Devis</th>
+                    <th>Pièce</th>
+                    <th>Client</th>
+                    <th class="th-hide-sm">Matière</th>
+                    <th>Total TTC</th>
+                    <th>Statut</th>
+                    <th class="th-hide-md">Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="q in paginatedManageQuotes" :key="q.id"
+                      :class="sendableQuotes.some(s => s.id === q.id) ? 'tr--sendable' : ''">
+                    <td class="td-num">{{ q.quote_number || '—' }}</td>
+                    <td class="td-name">{{ q.project_name || '—' }}</td>
+                    <td class="td-client">{{ q.client_name || '—' }}</td>
+                    <td class="td-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
+                    <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
+                    <td>
+                      <select :class="['status-select', 'status-' + (q.status || 'pending')]"
+                        :value="q.status || 'pending'"
+                        @change="changeStatus(q, $event.target.value)">
+                        <option value="pending">En attente</option>
+                        <option value="sent">Envoyé</option>
+                        <option value="accepted">Accepté</option>
+                        <option value="refused">Refusé</option>
+                      </select>
+                    </td>
+                    <td class="td-date td-hide-md">{{ fmtDate(q.created_at) }}</td>
+                    <td class="td-actions">
+                      <button class="btn-edit" @click="editQuote(q)" title="Modifier">
+                        <Pencil class="del-icon" />
+                      </button>
+                      <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF">
+                        <Download class="del-icon" />
+                      </button>
+                      <button v-if="sendableQuotes.some(s => s.id === q.id)"
+                        class="btn-send-row"
+                        @click="selectedQuoteId = q.id; selectedQuote = q; managePage = 2"
+                        title="Transmettre par e-mail">
+                        <Send class="del-icon" />
+                      </button>
+                      <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
+                        <Trash2 class="del-icon" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <button class="page-btn" :disabled="managePaginePage === totalManagePages" @click="managePaginePage++">Suivant →</button>
+            <div v-if="totalManagePages > 1" class="pagination manage-pgn">
+              <button class="page-btn" :disabled="managePaginePage === 1" @click="managePaginePage--">← Préc.</button>
+              <span class="manage-pgn-info">Page {{ managePaginePage }} / {{ totalManagePages }}</span>
+              <button class="page-btn" :disabled="managePaginePage === totalManagePages" @click="managePaginePage++">Suiv. →</button>
+            </div>
+          </div>
+
+          <!-- Vue Grille 2 colonnes — Tablette (641px–1024px) -->
+          <div class="manage-tab-grid">
+            <div v-for="q in paginatedManageQuotes" :key="q.id" class="mtcard">
+              <div class="mtcard-head">
+                <span class="mtcard-client">{{ q.client_name || '—' }}</span>
+                <span :class="['mtcard-badge', 'arch-status--' + (q.status || 'pending')]">
+                  {{ { pending: 'En attente', sent: 'Envoyé', accepted: 'Accepté', refused: 'Refusé' }[q.status] || 'En attente' }}
+                </span>
+              </div>
+              <div class="mtcard-body">
+                <div class="mtcard-field">
+                  <span class="mtcard-label">Pièce</span>
+                  <span class="mtcard-value">{{ q.project_name || '—' }}</span>
+                </div>
+                <div class="mtcard-field">
+                  <span class="mtcard-label">N° Devis</span>
+                  <span class="mtcard-value mtcard-value--mono">{{ q.quote_number || '—' }}</span>
+                </div>
+                <div class="mtcard-row2">
+                  <div class="mtcard-field">
+                    <span class="mtcard-label">Matière</span>
+                    <span class="mat-tag">{{ q.material || '—' }}</span>
+                  </div>
+                  <div class="mtcard-field">
+                    <span class="mtcard-label">Date</span>
+                    <span class="mtcard-value">{{ fmtDate(q.created_at) }}</span>
+                  </div>
+                </div>
+                <div class="mtcard-total">{{ fmtEur(q.total_cost) }}</div>
+              </div>
+              <div class="mtcard-foot">
+                <select :class="['status-select', 'status-' + (q.status || 'pending'), 'mtcard-status-sel']"
+                  :value="q.status || 'pending'"
+                  @change="changeStatus(q, $event.target.value)">
+                  <option value="pending">En attente</option>
+                  <option value="sent">Envoyé</option>
+                  <option value="accepted">Accepté</option>
+                  <option value="refused">Refusé</option>
+                </select>
+                <div class="mtcard-btns">
+                  <button class="btn-edit" @click="editQuote(q)" title="Modifier">
+                    <Pencil class="del-icon" />
+                  </button>
+                  <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF">
+                    <Download class="del-icon" />
+                  </button>
+                  <button v-if="sendableQuotes.some(s => s.id === q.id)"
+                    class="btn-send-row"
+                    @click="selectedQuoteId = q.id; selectedQuote = q; managePage = 2"
+                    title="Transmettre par e-mail">
+                    <Send class="del-icon" />
+                  </button>
+                  <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
+                    <Trash2 class="del-icon" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div v-if="totalManagePages > 1" class="pagination manage-pgn manage-tab-pgn">
+              <button class="page-btn" :disabled="managePaginePage === 1" @click="managePaginePage--">← Préc.</button>
+              <span class="manage-pgn-info">Page {{ managePaginePage }} / {{ totalManagePages }}</span>
+              <button class="page-btn" :disabled="managePaginePage === totalManagePages" @click="managePaginePage++">Suiv. →</button>
+            </div>
+          </div>
+
+          <!-- Vue Cartes — Mobile (≤640px) -->
+          <div class="manage-cards-view">
+            <div v-for="q in paginatedManageQuotes" :key="q.id" class="mcard">
+              <div class="mcard-top">
+                <span class="mcard-client">{{ q.client_name || '—' }}</span>
+                <span :class="['mcard-badge', 'arch-status--' + (q.status || 'pending')]">
+                  {{ { pending: 'En attente', sent: 'Envoyé', accepted: 'Accepté', refused: 'Refusé' }[q.status] || 'En attente' }}
+                </span>
+              </div>
+              <div class="mcard-meta">
+                <p class="mcard-piece">{{ q.project_name || '—' }}</p>
+                <p class="mcard-sub">N° {{ q.quote_number || '—' }} · {{ q.material || '—' }}</p>
+              </div>
+              <div class="mcard-row">
+                <span class="mcard-date">{{ fmtDate(q.created_at) }}</span>
+                <span class="mcard-total">{{ fmtEur(q.total_cost) }}</span>
+              </div>
+              <div class="mcard-bottom">
+                <select :class="['status-select', 'status-' + (q.status || 'pending'), 'mcard-status-sel']"
+                  :value="q.status || 'pending'"
+                  @change="changeStatus(q, $event.target.value)">
+                  <option value="pending">En attente</option>
+                  <option value="sent">Envoyé</option>
+                  <option value="accepted">Accepté</option>
+                  <option value="refused">Refusé</option>
+                </select>
+                <div class="mcard-actions">
+                  <button class="btn-edit" @click="editQuote(q)" title="Modifier">
+                    <Pencil class="del-icon" />
+                  </button>
+                  <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF">
+                    <Download class="del-icon" />
+                  </button>
+                  <button v-if="sendableQuotes.some(s => s.id === q.id)"
+                    class="btn-send-row"
+                    @click="selectedQuoteId = q.id; selectedQuote = q; managePage = 2"
+                    title="Transmettre par e-mail">
+                    <Send class="del-icon" />
+                  </button>
+                  <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
+                    <Trash2 class="del-icon" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div v-if="totalManagePages > 1" class="pagination manage-pgn">
+              <button class="page-btn" :disabled="managePaginePage === 1" @click="managePaginePage--">← Préc.</button>
+              <span class="manage-pgn-info">Page {{ managePaginePage }} / {{ totalManagePages }}</span>
+              <button class="page-btn" :disabled="managePaginePage === totalManagePages" @click="managePaginePage++">Suiv. →</button>
+            </div>
           </div>
         </template>
       </template>
@@ -589,6 +799,24 @@
             <p class="ecf-preview-subject">{{ resolvedSubject(selectedQuote) }}</p>
             <p v-if="resolvedIntro(selectedQuote)" class="ecf-preview-intro">{{ resolvedIntro(selectedQuote) }}</p>
             <div v-else class="preview-intro preview-intro--muted">Aucun texte d'introduction — configurez le modèle dans l'onglet Emails.</div>
+          </div>
+
+          <!-- Stripe Payment Link -->
+          <div v-if="selectedQuote" class="stripe-link-row">
+            <label class="stripe-link-label">🔗 Lien de paiement Stripe</label>
+            <div class="stripe-link-wrap">
+              <input type="url" class="stripe-link-input"
+                v-model="selectedQuote.stripe_payment_link"
+                placeholder="https://buy.stripe.com/…"
+                @change="saveStripeLink(selectedQuote)" />
+              <button v-if="selectedQuote.stripe_payment_link"
+                class="stripe-copy-btn"
+                @click="copyStripeLink(selectedQuote.stripe_payment_link)"
+                title="Copier le lien">
+                📋
+              </button>
+            </div>
+            <p class="stripe-link-hint">Générez ce lien depuis le <a href="https://dashboard.stripe.com/payment-links" target="_blank">Dashboard Stripe</a>, collez-le ici, puis envoyez-le au client par email.</p>
           </div>
 
           <!-- Actions -->
@@ -762,159 +990,22 @@
 
     <!-- ── Onglet Catalogue ── -->
     <div v-if="activeTab === 'catalogue'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">
-          Catalogue de matières
-          <span v-if="materialsLoading" class="settings-loading-badge">Chargement…</span>
-          <span v-if="matUploading" class="settings-loading-badge settings-loading-badge--teal">Upload…</span>
-        </h2>
-        <div class="panel-actions">
-          <button class="btn-add-mat" @click="addMaterialRow(); matPage = totalMatPages">+ Ajouter un filament</button>
-          <button class="btn-save-settings" @click="saveMaterials" :disabled="materialsSaving">
-            <span v-if="materialsSaving">Sauvegarde…</span>
-            <span v-else>Sauvegarder le catalogue</span>
-          </button>
-        </div>
-      </div>
+      <CatalogueSection
+        :materials="materials"
+        :materials-loading="materialsLoading"
+        :materials-saving="materialsSaving"
+        :mat-uploading="matUploading"
+        :current-page="matPage"
+        :per-page="matPerPage"
+        :known-brands="knownBrands"
+        @add-row="addMaterialRow(); matPage = totalMatPages"
+        @save="saveMaterials"
+        @delete="(mat, idx) => deleteMaterial(mat, idx)"
+        @upload="(mat, event) => onMatImageUpload(mat, event)"
+        @clear-image="clearMatImage"
+        @update:current-page="matPage = $event"
+      />
 
-      <div class="mat-table-wrap mat-table-wrap--full">
-        <table class="mat-table">
-          <thead>
-            <tr>
-              <th class="mat-th mat-th--color">Couleur</th>
-              <th class="mat-th mat-th--photo">Photo bobine</th>
-              <th class="mat-th mat-th--name">Nom du filament</th>
-              <th class="mat-th mat-th--brand">Marque</th>
-              <th class="mat-th mat-th--type">Type</th>
-              <th class="mat-th mat-th--num">€/kg</th>
-              <th class="mat-th mat-th--num">Perte %</th>
-              <th class="mat-th mat-th--stock">Statut Stock</th>
-              <th class="mat-th mat-th--action"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(mat, idx) in paginatedMaterials" :key="mat.id || idx" class="mat-row">
-              <!-- ── Couleur : picker + swatch + hex ── -->
-              <td class="mat-td mat-td--color">
-                <div class="mat-color-compact">
-                  <span class="mat-color-swatch mat-color-swatch--lg"
-                        :style="{ background: isHexColor(mat.color_or_image) ? mat.color_or_image : '#2e9cab' }"></span>
-                  <input type="color" class="mat-color-picker"
-                         :value="isHexColor(mat.color_or_image) ? mat.color_or_image : '#2e9cab'"
-                         @input="mat.color_or_image = $event.target.value"
-                         title="Choisir une couleur" />
-                  <span class="mat-hex-label">
-                    {{ isHexColor(mat.color_or_image) ? mat.color_or_image.toUpperCase() : '#2E9CAB' }}
-                  </span>
-                </div>
-              </td>
-
-              <!-- ── Photo bobine : thumbnail + upload + supprimer ── -->
-              <td class="mat-td mat-td--photo">
-                <div class="mat-photo-cell">
-                  <div class="mat-photo-preview">
-                    <img v-if="mat.image_url"
-                         class="mat-photo-thumb" :src="mat.image_url" :alt="mat.name"
-                         @error="$event.target.style.opacity='0.3'" />
-                    <div v-else class="mat-photo-empty">
-                      <ImageIcon class="mat-photo-empty-icon" />
-                    </div>
-                  </div>
-                  <div class="mat-photo-btns">
-                    <!-- label natif : un clic sur le label ouvre le sélecteur de fichier -->
-                    <!-- sans aucun JavaScript — fonctionne dans tous les navigateurs    -->
-                    <label class="mat-mode-btn mat-mode-btn--upload"
-                           :class="matUploading && 'mat-mode-btn--uploading'"
-                           :title="mat.image_url ? 'Modifier la photo' : 'Ajouter une photo'"
-                           :style="matUploading ? 'pointer-events:none' : ''">
-                      <span v-if="matUploading" class="mat-spinner"></span>
-                      <Upload v-else class="mat-mode-icon" />
-                      <input type="file" accept="image/*"
-                             style="display:none"
-                             :disabled="matUploading"
-                             @change="onMatImageUpload(mat, $event)" />
-                    </label>
-                    <button v-if="mat.image_url"
-                            class="mat-mode-btn mat-mode-btn--del-img"
-                            @click="clearMatImage(mat)"
-                            title="Supprimer la photo">
-                      <Trash2 class="mat-mode-icon" />
-                    </button>
-                  </div>
-                </div>
-              </td>
-              <td class="mat-td mat-td--name">
-                <input class="mat-input" type="text" v-model="mat.name" placeholder="Nom du filament" />
-              </td>
-              <td class="mat-td mat-td--brand">
-                <select class="mat-select mat-select--brand"
-                        :value="knownBrands.includes(mat.brand) ? mat.brand : 'Autre'"
-                        @change="onBrandChange(mat, $event.target.value)">
-                  <option v-for="b in knownBrands" :key="b">{{ b }}</option>
-                  <option value="Autre">Autre</option>
-                </select>
-                <input v-if="!knownBrands.includes(mat.brand)"
-                       class="mat-input mat-input--brand-other"
-                       type="text" v-model="mat.brand"
-                       placeholder="Marque…"
-                       @input="autoFillName(mat)" />
-              </td>
-              <td class="mat-td mat-td--type">
-                <select class="mat-select mat-select--type" v-model="mat.type" @change="onTypeChange(mat)">
-                  <option>PLA</option>
-                  <option>PLA+</option>
-                  <option>PLA+ 2.0</option>
-                  <option>PLA HS</option>
-                  <option>PLA HS 2.0</option>
-                  <option>PLA Galaxy</option>
-                  <option>PLA Silk</option>
-                  <option>Matt</option>
-                  <option>PETG</option>
-                </select>
-              </td>
-              <td class="mat-td mat-td--num">
-                <input class="mat-input mat-input--num" type="number" min="0" step="0.01" v-model.number="mat.cost_per_kg" />
-              </td>
-              <td class="mat-td mat-td--num">
-                <input class="mat-input mat-input--num" type="number" min="0" max="50" step="1" v-model.number="mat.default_waste_percentage" />
-              </td>
-              <td class="mat-td mat-td--stock">
-                <div class="mat-stock-cell">
-                  <span class="mat-stock-led" :class="stockLedClass(mat.stock_status)"></span>
-                  <select class="mat-select mat-select--stock" v-model="mat.stock_status">
-                    <option value="En Stock">En Stock</option>
-                    <option value="Stock Faible">Stock Faible</option>
-                    <option value="Rupture">Rupture</option>
-                  </select>
-                </div>
-              </td>
-              <td class="mat-td mat-td--action">
-                <button class="btn-del-mat" @click="deleteMaterial(mat, (matPage - 1) * matPerPage + idx)" title="Supprimer">
-                  <Trash2 class="del-icon" />
-                </button>
-              </td>
-            </tr>
-            <tr v-if="materials.length === 0 && !materialsLoading">
-              <td colspan="9" class="mat-empty-cell">Aucun matériau — cliquez sur "+ Ajouter un filament"</td>
-            </tr>
-            <tr v-if="materialsLoading">
-              <td colspan="9" class="mat-empty-cell">Chargement du catalogue…</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- ── Pagination du catalogue ── -->
-      <div v-if="totalMatPages > 1" class="mat-pagination">
-        <button class="page-btn" :disabled="matPage === 1" @click="matPage--">← Précédent</button>
-        <div class="mat-page-numbers">
-          <button v-for="p in totalMatPages" :key="p"
-            :class="['page-num', matPage === p && 'page-num--active']"
-            @click="matPage = p">{{ p }}</button>
-        </div>
-        <span class="mat-page-info">{{ matPage }} / {{ totalMatPages }}</span>
-        <button class="page-btn" :disabled="matPage === totalMatPages" @click="matPage++">Suivant →</button>
-      </div>
     </div>
 
     <!-- ── Onglet Paramètres ── -->
@@ -930,58 +1021,79 @@
         <span v-if="settingsLoading" class="settings-loading-badge">Chargement…</span>
       </div>
 
-      <!-- ══ Page 1 : Frais Fixes ══ -->
+      <!-- ══ Page 1 : Paramètres de calcul ══ -->
       <div v-if="settingsPage === 1" class="settings-single-col">
-        <div class="settings-section">
-          <p class="settings-section-title">Machine & Main d'œuvre</p>
-          <div class="settings-row">
-            <label class="settings-label">Tarif horaire</label>
-            <div class="settings-input-wrap">
-              <input class="settings-input" type="number" min="0" step="0.5" v-model.number="priceHourlyRate" />
-              <span class="settings-unit">€/h</span>
-            </div>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label">Électricité</label>
-            <div class="settings-input-wrap">
-              <input class="settings-input" type="number" min="0" step="0.01" v-model.number="priceElecPerHour" />
-              <span class="settings-unit">€/h</span>
-            </div>
-          </div>
-        </div>
+        <div class="settings-main-card">
 
-        <div class="settings-section">
-          <p class="settings-section-title">Marge & Tarification</p>
-          <div class="settings-row">
-            <label class="settings-label">Marge standard</label>
-            <div class="settings-input-wrap">
-              <input class="settings-input" type="number" min="0" max="300" step="5" v-model.number="priceMarginDefault" />
-              <span class="settings-unit">%</span>
+          <!-- Header violet — miroir exact de sim-header -->
+          <div class="settings-card-hdr">
+            <SlidersHorizontal class="settings-card-hdr-icon" />
+            <span class="settings-card-hdr-title">Paramètres de calcul</span>
+          </div>
+
+          <!-- Corps scrollable — flex:1 absorbe tout l'espace disponible -->
+          <div class="settings-card-body">
+
+            <!-- Grille 2 colonnes : Machine | Marge -->
+            <div class="settings-params-grid">
+              <div class="settings-section">
+                <p class="settings-section-title">Machine & Main d'œuvre</p>
+                <div class="settings-row">
+                  <label class="settings-label">Tarif horaire</label>
+                  <div class="settings-input-wrap">
+                    <input class="settings-input" type="number" min="0" step="0.5" v-model.number="priceHourlyRate" />
+                    <span class="settings-unit">€/h</span>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <label class="settings-label">Électricité</label>
+                  <div class="settings-input-wrap">
+                    <input class="settings-input" type="number" min="0" step="0.01" v-model.number="priceElecPerHour" />
+                    <span class="settings-unit">€/h</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <p class="settings-section-title">Marge & Tarification</p>
+                <div class="settings-row">
+                  <label class="settings-label">Marge standard</label>
+                  <div class="settings-input-wrap">
+                    <input class="settings-input" type="number" min="0" max="300" step="5" v-model.number="priceMarginDefault" />
+                    <span class="settings-unit">%</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div class="settings-section">
-          <p class="settings-section-title">Informations catalogue</p>
-          <div class="settings-row">
-            <span class="settings-label">Filaments enregistrés</span>
-            <span class="settings-catalogue-count">{{ materials.length }} filament{{ materials.length > 1 ? 's' : '' }}</span>
-          </div>
-          <p class="settings-intro-inline" style="padding: 0 0.75rem 0.4rem;">
-            Gérez vos matières depuis l'onglet
-            <button class="settings-link-tab" @click="activeTab = 'catalogue'">Catalogue →</button>
-          </p>
-        </div>
+            <!-- Catalogue info — bannière sous la grille -->
+            <div class="settings-section settings-section--wide">
+              <p class="settings-section-title">Informations catalogue</p>
+              <div class="settings-row">
+                <span class="settings-label">Filaments enregistrés</span>
+                <span class="settings-catalogue-count">{{ materials.length }} filament{{ materials.length > 1 ? 's' : '' }}</span>
+              </div>
+              <p class="settings-intro-inline" style="padding: 0 0.75rem 0.4rem;">
+                Gérez vos matières depuis l'onglet
+                <button class="settings-link-tab" @click="activeTab = 'catalogue'">Catalogue →</button>
+              </p>
+            </div>
 
-        <div class="settings-single-footer">
-          <button class="btn-save-settings" @click="saveSettings" :disabled="settingsSaving || settingsLoading">
-            <span v-if="settingsSaved">✓ Sauvegardé</span>
-            <span v-else-if="settingsSaving">Sauvegarde…</span>
-            <span v-else>Sauvegarder les paramètres</span>
-          </button>
-          <button class="btn-settings-next" @click="settingsPage = 2; simStep = 1">
-            Simulateur de coût →
-          </button>
+          </div>
+          <!-- /settings-card-body -->
+
+          <!-- Footer ancré en bas — miroir de sim-nav -->
+          <div class="settings-single-footer">
+            <button class="btn-save-settings" @click="saveSettings" :disabled="settingsSaving || settingsLoading">
+              <span v-if="settingsSaved">✓ Sauvegardé</span>
+              <span v-else-if="settingsSaving">Sauvegarde…</span>
+              <span v-else>Sauvegarder les paramètres</span>
+            </button>
+            <button class="btn-settings-next" @click="settingsPage = 2; simStep = 1">
+              Simulateur de coût →
+            </button>
+          </div>
+
         </div>
       </div>
 
@@ -1215,12 +1327,13 @@ import { getAllQuotesAdmin, getAllProfilesAdmin, adminDeleteQuote, adminDeleteUs
 import { supabase } from '../lib/supabase'
 import { generateQuotePDF, generateQuotePDFDoc, pdfToBase64 } from '../utils/generateQuotePDF'
 import { useCalculatorStore } from '../stores/calculator'
-import ToastMessage from '../components/ToastMessage.vue'
+import ToastMessage       from '../components/ToastMessage.vue'
+import CatalogueSection   from '../components/CatalogueSection.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
   Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
   BarChart2, SlidersHorizontal, Package, ChevronDown,
-  Image as ImageIcon, Upload, Palette,
+  Image as ImageIcon, Upload, Palette, Save,
 } from 'lucide-vue-next'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -1228,10 +1341,11 @@ import autoTable from 'jspdf-autotable'
 export default {
   name: 'AdminDashboard',
   components: {
-    ToastMessage, ShieldCheck, Users, FileText, Wallet, TrendingUp,
+    ToastMessage, CatalogueSection,
+    ShieldCheck, Users, FileText, Wallet, TrendingUp,
     Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
     Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
-    ImageIcon, Upload, Palette,
+    ImageIcon, Upload, Palette, Save,
   },
   setup() {
     return { calculatorStore: useCalculatorStore() }
@@ -1325,6 +1439,7 @@ export default {
       matUploading: false,
       // ── UI état ──────────────────────────────────────────────────────────
       dossierDropdownOpen: false,
+      burgerOpen: false,
       settingsPage:        1,
       managePage:          1,
       managePaginePage:    1,
@@ -1341,6 +1456,18 @@ export default {
         { id: 'catalogue', label: 'Catalogue',     icon: 'Package',          count: this.materials.length },
         { id: 'settings',  label: 'Paramètres',    icon: 'SlidersHorizontal' },
       ]
+    },
+    currentTabIcon() {
+      if (this.activeTab === 'clients') return 'Users'
+      if (this.activeTab === 'quotes')  return 'FileText'
+      const t = this.tabs.find(t => t.id === this.activeTab)
+      return t ? t.icon : 'Menu'
+    },
+    currentTabLabel() {
+      if (this.activeTab === 'clients') return 'Liste des clients'
+      if (this.activeTab === 'quotes')  return 'Tous les devis'
+      const t = this.tabs.find(t => t.id === this.activeTab)
+      return t ? t.label : ''
     },
     sentQuotes() {
       return this.quotes.filter(q => q.status === 'sent')
@@ -1606,6 +1733,25 @@ export default {
         console.error('[saveQuote]', err)
         this.$refs.toast?.show(`Erreur : ${err.message}`, 'error')
       }
+    },
+
+    async saveStripeLink(quote) {
+      if (!quote?.id) return
+      const { error } = await supabase
+        .from('quotes')
+        .update({ stripe_payment_link: quote.stripe_payment_link || null })
+        .eq('id', quote.id)
+      if (error) {
+        this.$refs.toast?.show('Erreur sauvegarde lien Stripe : ' + error.message, 'error')
+      } else {
+        this.$refs.toast?.show('Lien Stripe sauvegardé.', 'success', 2000)
+      }
+    },
+    copyStripeLink(url) {
+      if (!url) return
+      navigator.clipboard.writeText(url)
+        .then(() => this.$refs.toast?.show('Lien copié !', 'success', 1500))
+        .catch(() => this.$refs.toast?.show('Impossible de copier.', 'error'))
     },
 
     async sendTestEmail() {
@@ -2105,6 +2251,10 @@ export default {
           color_or_image:           this.isHexColor(m.color_or_image) ? m.color_or_image : '#2e9cab',
           image_url:                m.image_url || null,
           stock_status:             m.stock_status || 'En Stock',
+          poids_depart:             parseInt(m.poids_depart) || 1000,
+          poids_restant:            m.poids_restant !== null && m.poids_restant !== undefined
+                                      ? parseInt(m.poids_restant)
+                                      : parseInt(m.poids_depart) || 1000,
           updated_at:               now,
         })
         const toUpsert = this.materials.filter(m => m.id && !m._new).map(m => matPayload(m, true))
@@ -2142,6 +2292,7 @@ export default {
         cost_per_kg: 20, default_waste_percentage: 10,
         color_or_image: '#2e9cab', image_url: null,
         stock_status: 'En Stock',
+        poids_depart: 1000, poids_restant: null,
       })
     },
     async deleteMaterial(mat, idx) {
@@ -2181,8 +2332,9 @@ export default {
       if (!mat.name) mat.name = generated
     },
     stockLedClass(status) {
-      if (status === 'Stock Faible') return 'mat-stock-led--low'
-      if (status === 'Rupture')      return 'mat-stock-led--out'
+      if (status === 'Stock Faible')        return 'mat-stock-led--low'
+      if (status === 'Rupture')             return 'mat-stock-led--out'
+      if (status === 'Réapprovisionnement') return 'mat-stock-led--reorder'
       return 'mat-stock-led--ok'
     },
     // ── Catalogue : gestion upload image et bascule de mode ──────────────
@@ -2318,7 +2470,6 @@ export default {
 
 <style scoped>
 .admin-page {
-  /* Subtract sticky header (~4.5rem) so total document height = viewport height */
   height: calc(100dvh - 4.5rem);
   overflow: hidden;
   display: flex;
@@ -2326,6 +2477,7 @@ export default {
   background: #f0f4f8;
   padding: 1.5rem 1.5rem 1rem;
   max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
 }
@@ -2407,6 +2559,93 @@ export default {
 .stat-icon--amber  { color: #d69e2e; }
 .stat-value { font-size: 1.2rem; font-weight: 800; color: #1b2f39; margin: 0 0 0.1rem; letter-spacing: -0.02em; }
 .stat-label { font-size: 0.68rem; font-weight: 600; color: #a0aec0; margin: 0; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Burger menu mobile (masqué par défaut, visible ≤640px) ── */
+.tabs-burger {
+  display: none;
+  position: relative;
+  width: 100%;
+  margin-bottom: 0.65rem;
+  flex-shrink: 0;
+  z-index: 50;
+}
+.burger-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.58rem 0.85rem;
+  border-radius: 12px;
+  border: 1.5px solid rgba(124, 58, 237, 0.22);
+  background: rgba(255, 255, 255, 0.97);
+  color: #6d28d9;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.10);
+  text-align: left;
+}
+.burger-trigger-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
+.burger-trigger-label { flex: 1; }
+.burger-trigger-chevron {
+  width: 0.85rem; height: 0.85rem; flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+.burger-trigger-chevron--open { transform: rotate(180deg); }
+
+.burger-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0; right: 0;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.07);
+  overflow: hidden;
+  padding: 0.3rem;
+}
+.burger-group-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #a0aec0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.65rem 0.15rem;
+}
+.burger-sep {
+  height: 1px;
+  background: #f0f4f8;
+  margin: 0.2rem 0;
+}
+.burger-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.52rem 0.65rem;
+  border-radius: 9px;
+  border: none;
+  background: none;
+  color: #4a5568;
+  font-size: 0.83rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.burger-item:hover { background: #f7f5ff; color: #6d28d9; }
+.burger-item--active { background: #f3f0ff; color: #7c3aed; }
+.burger-item-icon { width: 0.9rem; height: 0.9rem; flex-shrink: 0; }
+.burger-item-count {
+  margin-left: auto;
+  font-size: 0.65rem; font-weight: 700;
+  background: rgba(124,58,237,0.10);
+  color: #7c3aed;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+}
 
 /* ── Onglets — Violet Admin ── */
 .tabs-bar { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; flex-shrink: 0; }
@@ -2550,7 +2789,7 @@ export default {
 
 /* Table */
 .table-wrap { flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.data-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.82rem; }
 .data-table thead th {
   padding: 0.6rem 0.85rem; text-align: left;
   font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
@@ -3199,31 +3438,38 @@ export default {
 /* Tableau matières */
 .mat-table-wrap {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
-.mat-table { width: 100%; border-collapse: collapse; font-size: 0.79rem; table-layout: fixed; }
+.mat-table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 0.75rem; table-layout: fixed; }
 .mat-th {
-  padding: 0.38rem 0.55rem; text-align: left;
-  font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
+  padding: 0.26rem 0.38rem; text-align: left;
+  font-size: 0.54rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; color: #a0aec0;
   background: #fff; border-bottom: 1px solid #e2e8f0;
   white-space: nowrap; position: sticky; top: 0; z-index: 1;
 }
-.mat-th--color  { width: 118px; }
-.mat-th--photo  { width: 76px; }
-.mat-th--name   { width: 160px; }
-.mat-th--brand  { width: 110px; }
-.mat-th--type   { width: 96px; }
-.mat-th--num    { width: 54px; text-align: right; }
-.mat-th--stock  { width: 112px; }
-.mat-th--action { width: 34px; }
+.mat-th--color  { width: 108px; }
+.mat-th--photo  { width: 68px; }
+.mat-th--name   { width: 150px; }
+.mat-th--brand  { width: 100px; }
+.mat-th--type   { width: 90px; }
+.mat-th--num    { width: 50px; text-align: right; }
+.mat-th--restant { color: #2e9cab; width: 72px; }
+.mat-th--poids  { width: 74px; }
+.mat-th--stock  { width: 108px; }
+.mat-th--action { width: 30px; }
 .mat-row { border-bottom: 1px solid #f0f4f8; transition: background 0.1s; }
 .mat-row:hover { background: #f8f7ff; }
-.mat-td { padding: 0.28rem 0.45rem; vertical-align: middle; }
-.mat-td--color  { width: 118px; }
-.mat-td--photo  { width: 76px; }
+.mat-td { padding: 0.20rem 0.35rem; vertical-align: middle; }
+.mat-td--color  { width: 108px; }
+.mat-td--photo  { width: 68px; }
 .mat-td--num    { text-align: right; }
 .mat-td--stock  { vertical-align: middle; }
 .mat-td--action { text-align: center; }
+.mat-poids-cell { display: flex; align-items: center; gap: 2px; justify-content: flex-end; }
+.mat-unit-label { font-size: 0.58rem; font-weight: 700; color: #a0aec0; white-space: nowrap; }
+.mat-input--restant { color: #2e9cab; font-weight: 700; }
+
 .mat-empty-cell {
   padding: 1.5rem; text-align: center;
   font-size: 0.78rem; color: #a0aec0; font-style: italic;
@@ -3327,6 +3573,7 @@ export default {
 .mat-input--name  { /* largeur libre — le td s'en charge */ }
 .mat-input--brand { max-width: 108px; }
 .mat-input--num   { width: 52px; text-align: right; }
+.mat-input--poids { width: 58px; }
 .mat-select {
   width: 100%; box-sizing: border-box; border: 1.5px solid #e2e8f0; border-radius: 6px;
   padding: 0.22rem 0.32rem; font-size: 0.76rem; font-family: inherit;
@@ -3353,9 +3600,10 @@ export default {
   width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
   box-shadow: 0 0 5px currentColor;
 }
-.mat-stock-led--ok  { background: #22c55e; color: #22c55e; }
-.mat-stock-led--low { background: #f59e0b; color: #f59e0b; }
-.mat-stock-led--out { background: #ef4444; color: #ef4444; }
+.mat-stock-led--ok     { background: #22c55e; color: #22c55e; }
+.mat-stock-led--low    { background: #f59e0b; color: #f59e0b; }
+.mat-stock-led--out    { background: #ef4444; color: #ef4444; }
+.mat-stock-led--reorder{ background: #3b82f6; color: #3b82f6; }
 .btn-del-mat {
   width: 1.65rem; height: 1.65rem; border: none; background: none;
   border-radius: 7px; cursor: pointer;
@@ -3404,6 +3652,18 @@ export default {
 }
 .btn-save-settings:hover:not(:disabled) { filter: brightness(1.07); }
 .btn-save-settings:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* ── Catalogue : bouton sauvegarde icône seulement ── */
+.btn-save-mat-icon {
+  width: 38px; height: 38px; border-radius: 12px; border: none; flex-shrink: 0;
+  background: linear-gradient(135deg, #9f7aea 0%, #7c3aed 100%);
+  color: #fff; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.30);
+  transition: filter 0.18s ease, transform 0.18s ease;
+}
+.btn-save-mat-icon:hover:not(:disabled) { filter: brightness(1.1); transform: scale(1.06); }
+.btn-save-mat-icon:disabled { opacity: 0.65; cursor: not-allowed; }
 
 /* ── Simulateur — sélecteur matière avec indicateur visuel ── */
 .sim-mat-select-wrap {
@@ -3702,7 +3962,7 @@ export default {
     overflow: visible;
     padding-bottom: 3rem;
   }
-  .panel-card  { flex: none; }
+  .panel-card  { flex: none; overflow: visible; }
   .table-wrap  { flex: none; min-height: auto; overflow-y: visible; }
   .email-grid  { flex: none; min-height: auto; overflow: visible; }
   .email-col   { min-height: auto; overflow: visible; }
@@ -3722,12 +3982,49 @@ export default {
   .settings-v3-col   { overflow: visible; }
   .settings-v3-col-inner { overflow-y: visible; }
   .stats-panel    { flex: none; overflow-y: visible; }
+  /* Onglets : 2 rangées centrées sur tablette */
+  .tabs-bar { flex-wrap: wrap; justify-content: center; }
+}
+
+/* ── Tablette paysage (761px–1023px) : layout identique au desktop ──
+   Panel remplit la hauteur restante, table scrolle en interne.        */
+@media (min-width: 761px) and (max-width: 1023px) {
+  .admin-page {
+    height: calc(100dvh - 4.5rem);
+    overflow: hidden;
+    padding-bottom: 1rem;
+  }
+  .panel-card     { flex: 1; min-height: 0; overflow: visible; display: flex; flex-direction: column; }
+  .table-wrap     { flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto; }
+  .mat-table-wrap { flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto; }
+  .mat-table-wrap--full { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .email-grid     { flex: 1; min-height: 0; overflow: hidden; }
+  .email-col      { min-height: 0; overflow: hidden; }
+  .email-col-body { flex: 1; overflow-y: auto; }
+  .send-list      { flex: 1; min-height: 0; overflow-y: auto; }
+  .manage-grid    { flex: 1; min-height: 0; overflow: hidden; }
+  .settings-v3-grid  { flex: 1; min-height: 0; overflow: hidden; }
+  .stats-panel    { flex: 1; overflow-y: auto; }
+}
+
+/* ── Mobile (≤760px) : stats 2 colonnes, tout en haut ── */
+@media (max-width: 760px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ── Responsive ── */
 @media (max-width: 760px) {
   .th-hide-md, .td-hide-md { display: none; }
-  .tabs-bar { overflow-x: auto; padding-bottom: 0.25rem; flex-wrap: nowrap; }
+  /* Mobile : scroll horizontal, scrollbar invisible, fade à droite */
+  .tabs-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    padding-bottom: 0.25rem;
+    -webkit-mask-image: linear-gradient(to right, black 82%, transparent 100%);
+    mask-image: linear-gradient(to right, black 82%, transparent 100%);
+  }
+  .tabs-bar::-webkit-scrollbar { display: none; }
   .tab-btn  { white-space: nowrap; flex-shrink: 0; }
   .email-grid { grid-template-columns: 1fr; }
   .email-col  { border-right: none; border-bottom: 1px solid #f0f4f8; }
@@ -3757,6 +4054,26 @@ export default {
   .email-panel-footer { flex-wrap: wrap; }
   .pagination { gap: 0.35rem; }
   .page-numbers { display: none; }
+}
+
+/* ── Mobile ≤640px : burger menu + masquage colonnes catalogue ── */
+@media (max-width: 640px) {
+  .tabs-burger { display: block; }
+  .tabs-bar    { display: none; }
+  .mat-hide-sm { display: none; }
+  /* Colonnes plus étroites sur mobile pour limiter le scroll (table-layout:fixed = th contrôle) */
+  .mat-table        { min-width: 390px; }
+  .mat-th--color    { width: 60px; }
+  .mat-th--name     { width: 115px; }
+  .mat-th--num.mat-th--kg { width: 42px; }
+  .mat-th--restant  { width: 58px; }
+  .mat-th--stock    { width: 82px; }
+  .mat-th--action   { width: 28px; }
+  /* Gradient fade → indique qu'il y a du contenu à droite */
+  .mat-table-wrap--full {
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
 }
 
 /* ── Paramètres — layout 1 colonne paginé ── */
@@ -3821,6 +4138,127 @@ export default {
   .btn-settings-next { margin-left: 0; justify-content: center; }
 }
 
+/* ── Paramètres — Desktop (≥ 1025px) : grande carte unique (même architecture que le Simulateur) ── */
+@media (min-width: 1025px) {
+  /* Container : flex-colonne avec padding, pas de grid */
+  .settings-single-col {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* Grande carte englobante — flex:1 = remplit tout l'espace (exactement comme sim-card--wide) */
+  .settings-main-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e8edf3;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+
+  /* En-tête violet — miroir exact de sim-header */
+  .settings-card-hdr {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.45rem 1.25rem; flex-shrink: 0;
+    background: linear-gradient(135deg, #9f7aea 0%, #7c3aed 100%);
+    border-radius: 20px 20px 0 0;
+  }
+  .settings-card-hdr-icon  { width: 0.8rem; height: 0.8rem; color: rgba(255,255,255,0.85); flex-shrink: 0; }
+  .settings-card-hdr-title { font-size: 0.68rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.07em; }
+
+  /* Corps scrollable de la grande carte — flex:1 absorbe tout l'espace, scrolle si besoin */
+  .settings-card-body {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+
+  /* Grille 2 colonnes intérieure — flex-shrink:0, la settings-card-body scrolle si besoin */
+  .settings-params-grid {
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+
+  /* Sous-cartes Machine & Marge : légèrement grisées pour contraster avec la carte blanche */
+  .settings-params-grid .settings-section {
+    background: #f7f9fc;
+    border: 1px solid #f0f4f8;
+    border-radius: 14px;
+    padding: 1.25rem;
+    gap: 0.65rem;
+  }
+  .settings-params-grid .settings-section-title {
+    font-size: 0.65rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid #f0e6ff;
+    margin-bottom: 0.1rem;
+  }
+  .settings-params-grid .settings-row {
+    background: #fff;
+    border-color: #e8edf3;
+    border-radius: 10px;
+  }
+
+  /* Bannière Catalogue : barre horizontale en bas de la grille, ancrée dans la carte */
+  .settings-section--wide {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 0.85rem 1.25rem;
+    border-top: 1px solid #f0f4f8;
+    background: #fafbfd;
+    border-radius: 0;
+    flex-shrink: 0;
+  }
+  .settings-section--wide .settings-section-title {
+    padding-bottom: 0;
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+  .settings-section--wide .settings-row {
+    flex: 1;
+    min-width: 200px;
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+  .settings-section--wide .settings-intro-inline {
+    flex-shrink: 0;
+    padding: 0 !important;
+  }
+
+  /* Footer : ancré en bas de la grande carte, boutons à droite */
+  .settings-single-footer {
+    justify-content: flex-end;
+    margin-top: 0;
+    padding: 0.85rem 1.25rem;
+    border-top: 1px solid #f0e6ff;
+    flex-shrink: 0;
+  }
+
+  /* Boutons : largeur naturelle */
+  .btn-save-settings {
+    padding: 0.65rem 2.25rem;
+    font-size: 0.85rem;
+  }
+  .btn-settings-next {
+    margin-left: 0;
+    padding: 0.65rem 1.5rem;
+    font-size: 0.85rem;
+  }
+}
+
 /* ── Onglet Gestion Devis — page 2 (send) ── */
 .manage-single-col {
   padding: 0.85rem 1.25rem 1rem;
@@ -3866,6 +4304,22 @@ export default {
   display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;
   padding-top: 0.25rem; margin-top: auto;
 }
+.stripe-link-row { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #f0f4f8; }
+.stripe-link-label { font-size: 0.75rem; font-weight: 700; color: #4a5568; display: block; margin-bottom: 0.35rem; }
+.stripe-link-wrap { display: flex; gap: 0.4rem; align-items: center; }
+.stripe-link-input {
+  flex: 1; border: 1.5px solid #e2e8f0; border-radius: 8px;
+  padding: 0.3rem 0.6rem; font-size: 0.78rem; font-family: inherit;
+  outline: none; transition: border-color 0.2s;
+}
+.stripe-link-input:focus { border-color: #7c3aed; }
+.stripe-copy-btn {
+  padding: 0.3rem 0.5rem; border: 1.5px solid #e2e8f0; border-radius: 8px;
+  background: #fff; cursor: pointer; font-size: 0.9rem; transition: background 0.15s;
+}
+.stripe-copy-btn:hover { background: #f0e6ff; border-color: #9f7aea; }
+.stripe-link-hint { font-size: 0.7rem; color: #a0aec0; margin: 0.3rem 0 0; }
+.stripe-link-hint a { color: #7c3aed; }
 .manage-empty-send { display: flex; flex-direction: column; align-items: center; padding: 2rem 1rem; gap: 0.5rem; flex: 1; }
 .manage-empty-icon { width: 2.2rem; height: 2.2rem; color: #cbd5e0; }
 
@@ -3958,4 +4412,366 @@ export default {
 
 /* ── Badge teal (état upload) ── */
 .settings-loading-badge--teal { background: #e8f7f9; color: #2e9cab; border-color: #b2e8ef; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   ONGLET "GESTION DEVIS" — Responsive
+   ─────────────────────────────────────────────────────────────────
+   Base  : tableau visible, cartes cachées
+   ≤640px: cartes visibles, tableau caché
+═══════════════════════════════════════════════════════════════════ */
+
+/* Visibilité par défaut */
+.quotes-table-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.quotes-cards-view { display: none; }
+
+/* Pagination compacte (remplace les boutons numérotés) */
+.quotes-pgn { gap: 0.55rem; }
+.quotes-pgn .page-numbers { display: none; }
+.quotes-pgn-info {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #718096;
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* ── Mobile (≤ 640 px) : Card Layout devis ── */
+@media (max-width: 640px) {
+  .quotes-table-view { display: none; }
+  .quotes-cards-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Carte individuelle */
+  .qcard {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  }
+
+  /* Ligne 1 : client + statut */
+  .qcard-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .qcard-client {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #1b2f39;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+    font-family: inherit;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .qcard-client:hover { color: #7c3aed; }
+  .qcard-badge { flex-shrink: 0; font-size: 0.65rem; }
+
+  /* Ligne 2 : pièce + numéro */
+  .qcard-meta { display: flex; flex-direction: column; gap: 0.12rem; }
+  .qcard-piece { font-size: 0.88rem; font-weight: 700; color: #2d3748; margin: 0; }
+  .qcard-sub {
+    font-size: 0.72rem; color: #a0aec0; margin: 0;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+
+  /* Ligne 3 : date + total */
+  .qcard-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.3rem;
+    border-top: 1px solid #f0f4f8;
+  }
+  .qcard-date  { font-size: 0.75rem; color: #718096; }
+  .qcard-total { font-size: 1.05rem; font-weight: 800; color: #1b2f39; }
+
+  /* Ligne 4 : statut select + actions */
+  .qcard-bottom { display: flex; align-items: center; gap: 0.5rem; }
+  .qcard-status-sel { flex: 1; font-size: 0.78rem; }
+  .qcard-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+  .qcard-actions .btn-edit,
+  .qcard-actions .btn-pdf,
+  .qcard-actions .btn-send-row,
+  .qcard-actions .btn-del {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* ── Tablette (641 px – 1024 px) : scroll horizontal devis ── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .quotes-table-view .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .data-table { font-size: 0.85rem; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   ONGLET "PARAMÈTRES" — Responsive
+   ─────────────────────────────────────────────────────────────────
+   Desktop  : centré avec max-width pour éviter les inputs géants
+   Tablette : grille 2 colonnes pour les sections
+   Mobile   : tout empilé, gap confortable (1rem)
+═══════════════════════════════════════════════════════════════════ */
+
+/* Desktop (≥ 1025 px) : limiter la largeur des inputs */
+@media (min-width: 1025px) {
+  .settings-single-col {
+    max-width: 700px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .settings-single-col--sim { max-width: none; margin: 0; }
+}
+
+/* Tablette (641 px – 1024 px) : grille 2 colonnes pour les sections */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .settings-single-col {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    align-content: start;
+  }
+  /* Le simulateur reste en colonne simple */
+  .settings-single-col--sim {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  /* Footer → pleine largeur de la grille */
+  .settings-single-col .settings-single-footer {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+}
+
+/* Mobile (≤ 640 px) : inputs empilés, grand gap */
+@media (max-width: 640px) {
+  .settings-single-col { padding: 0.85rem; gap: 1rem; }
+  .settings-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .settings-input-wrap { align-self: flex-start; }
+  .settings-input { width: 110px; text-align: right; }
+  .settings-single-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+  .btn-settings-next { margin-left: 0; justify-content: center; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ONGLET "GESTION DEVIS" page 1 (Devis sauvegardés) — Responsive
+   ≥ 1025px     : tableau pleine largeur
+   641 – 1024px : grille 2 colonnes de cartes (.mtcard)
+   ≤ 640px      : cartes verticales empilées (.mcard)
+═══════════════════════════════════════════════════════════════════ */
+
+/* Visibilité par défaut (desktop ≥1025px : tableau) */
+.manage-table-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.manage-tab-grid   { display: none; }
+.manage-cards-view { display: none; }
+
+/* Tableau desktop : pleine largeur, colonnes auto */
+.manage-table-view .data-table {
+  table-layout: auto;
+  width: 100%;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+/* Pagination compacte (partagée par les 3 vues) */
+.manage-pgn { gap: 0.55rem; }
+.manage-pgn .page-numbers { display: none; }
+.manage-pgn-info {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #718096;
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* ── Tablette (641px – 1024px) : Grille 2 colonnes de cartes ── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .manage-table-view { display: none; }
+  .manage-tab-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    padding: 1rem 1.25rem;
+    overflow-y: auto;
+    align-content: start;
+  }
+  .manage-tab-pgn { grid-column: 1 / -1; margin-top: 0.25rem; }
+
+  .mtcard {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  }
+
+  .mtcard-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .mtcard-client {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #1b2f39;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mtcard-badge { flex-shrink: 0; font-size: 0.7rem; }
+
+  .mtcard-body { display: flex; flex-direction: column; gap: 0.5rem; }
+  .mtcard-field { display: flex; flex-direction: column; gap: 0.1rem; }
+  .mtcard-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+  .mtcard-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #a0aec0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .mtcard-value { font-size: 0.9rem; font-weight: 700; color: #2d3748; }
+  .mtcard-value--mono {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: #718096;
+  }
+  .mtcard-total {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #7c3aed;
+    padding-top: 0.35rem;
+    border-top: 1px solid #f0f4f8;
+  }
+
+  .mtcard-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid #f0f4f8;
+  }
+  .mtcard-status-sel { flex: 1; font-size: 0.82rem; }
+  .mtcard-btns { display: flex; gap: 0.3rem; flex-shrink: 0; }
+  .mtcard-btns .btn-edit,
+  .mtcard-btns .btn-pdf,
+  .mtcard-btns .btn-send-row,
+  .mtcard-btns .btn-del { width: 38px; height: 38px; border-radius: 10px; }
+}
+
+/* ── Mobile (≤ 640px) : cartes verticales empilées ── */
+@media (max-width: 640px) {
+  .manage-table-view { display: none; }
+  .manage-cards-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .mcard {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  }
+
+  .mcard-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .mcard-client {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #1b2f39;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mcard-badge { flex-shrink: 0; font-size: 0.65rem; }
+
+  .mcard-meta { display: flex; flex-direction: column; gap: 0.12rem; }
+  .mcard-piece { font-size: 0.88rem; font-weight: 700; color: #2d3748; margin: 0; }
+  .mcard-sub   { font-size: 0.72rem; color: #a0aec0; margin: 0; }
+
+  .mcard-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.3rem;
+    border-top: 1px solid #f0f4f8;
+  }
+  .mcard-date  { font-size: 0.75rem; color: #718096; }
+  .mcard-total { font-size: 1.05rem; font-weight: 800; color: #2e9cab; }
+
+  .mcard-bottom { display: flex; align-items: center; gap: 0.5rem; }
+  .mcard-status-sel { flex: 1; font-size: 0.78rem; }
+  .mcard-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+  .mcard-actions .btn-edit,
+  .mcard-actions .btn-pdf,
+  .mcard-actions .btn-send-row,
+  .mcard-actions .btn-del { width: 34px; height: 34px; }
+}
 </style>

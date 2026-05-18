@@ -16,7 +16,7 @@ const routes = [
   { path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/admin', name: 'admin', component: AdminDashboard, meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/calculator', redirect: '/calculator/1' },
-  { path: '/calculator/:step', name: 'calculator-step', component: CalculatorStep, meta: { requiresAuth: true } },
+  { path: '/calculator/:step', name: 'calculator-step', component: CalculatorStep },
   { path: '/login', name: 'login', component: Login },
   { path: '/signup', name: 'signup', component: Signup },
   { path: '/reset-password', name: 'reset-password', component: ResetPassword },

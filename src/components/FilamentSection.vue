@@ -20,17 +20,27 @@
           </span>
           <select :class="formStyles.select" v-model="localMaterialId" @change="onCatalogMaterialChange">
             <option :value="null">{{ materialsLoading ? 'Chargement…' : '— Choisir un filament —' }}</option>
-            <option v-for="m in supabaseMaterials" :key="m.id" :value="m.id">
+            <option v-for="m in availableMaterials" :key="m.id" :value="m.id">
               {{ m.name }}{{ m.brand ? ' · ' + m.brand : '' }}
+            </option>
+            <option v-if="outOfStockMaterials.length" disabled>── Rupture de stock ──</option>
+            <option v-for="m in outOfStockMaterials" :key="m.id" :value="m.id" disabled>
+              {{ m.name }}{{ m.brand ? ' · ' + m.brand : '' }} (indisponible)
             </option>
             <option value="custom">Autre / personnalisé</option>
           </select>
         </div>
         <p v-if="selectedMaterialObj" :class="formStyles.helpText">
           {{ selectedMaterialObj.type }} · {{ selectedMaterialObj.cost_per_kg }}€/kg · Perte {{ selectedMaterialObj.default_waste_percentage }}%
+          <span v-if="selectedMaterialObj.stock_status === 'Stock Faible'" class="stock-badge stock-badge--low">⚠ Stock faible</span>
+        </p>
+        <p v-else-if="loadError" :class="formStyles.helpText" class="load-error">
+          Catalogue indisponible —
+          <button class="retry-btn" @click="loadCatalog">Réessayer</button>
+          ou saisissez le coût ci-dessous.
         </p>
         <p v-else-if="!materialsLoading && !supabaseMaterials.length" :class="formStyles.helpText">
-          Catalogue non disponible — saisissez le coût manuellement
+          Catalogue vide — saisissez le coût manuellement
         </p>
       </div>
 
@@ -179,6 +189,7 @@ export default {
       selectedColors:    [],
       supabaseMaterials: [],
       materialsLoading:  false,
+      loadError:         false,
       localMaterialId:   this.materialId,
       projectTypes: [
         { id: 'standard',    label: 'Standard (×1.0)',           coeff: 1.00 },
@@ -209,26 +220,41 @@ export default {
       if (!this.localMaterialId || this.localMaterialId === 'custom') return null
       return this.supabaseMaterials.find(m => m.id === this.localMaterialId) || null
     },
+    availableMaterials() {
+      return this.supabaseMaterials.filter(m => m.stock_status !== 'Rupture')
+    },
+    outOfStockMaterials() {
+      return this.supabaseMaterials.filter(m => m.stock_status === 'Rupture')
+    },
     projectCoeff() {
       return this.projectTypes.find(p => p.id === this.projectType)?.coeff ?? 1
     },
   },
   async mounted() {
-    this.materialsLoading = true
-    try {
-      const { data, error } = await supabase
-        .from('bambu_materials').select('*').order('created_at', { ascending: true })
-      if (!error && data?.length) {
-        this.supabaseMaterials = data
-        if (this.materialId && data.find(m => m.id === this.materialId)) {
-          this.localMaterialId = this.materialId
-        }
-      }
-    } finally {
-      this.materialsLoading = false
-    }
+    await this.loadCatalog()
   },
   methods: {
+    async loadCatalog() {
+      this.materialsLoading = true
+      this.loadError = false
+      try {
+        const { data, error } = await supabase
+          .from('bambu_materials')
+          .select('id, name, brand, type, cost_per_kg, default_waste_percentage, color_or_image, image_url, stock_status')
+          .order('created_at', { ascending: true })
+        if (error) { this.loadError = true; return }
+        if (data?.length) {
+          this.supabaseMaterials = data
+          if (this.materialId && data.find(m => m.id === this.materialId)) {
+            this.localMaterialId = this.materialId
+          }
+        }
+      } catch {
+        this.loadError = true
+      } finally {
+        this.materialsLoading = false
+      }
+    },
     onCatalogMaterialChange() {
       const mat = this.selectedMaterialObj
       if (mat) {
@@ -237,7 +263,9 @@ export default {
         this.$emit('update:costPerKg',   mat.cost_per_kg)
         this.$emit('update:lossPercent', mat.default_waste_percentage)
       } else {
+        // Sélection effacée ou "Autre" → reset pour saisie manuelle
         this.$emit('update:materialId', null)
+        this.$emit('update:costPerKg',  0)
       }
     },
     isHexColor(val) {
@@ -336,6 +364,21 @@ export default {
 .swatch:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 .swatch-check { font-size: 0.75rem; font-weight: 800; }
 .palette-chosen { font-size: 0.75rem; color: #718096; margin: 0; font-style: italic; }
+
+/* ── Badge stock ── */
+.stock-badge {
+  display: inline-block; padding: 0.06rem 0.45rem; border-radius: 999px;
+  font-size: 0.67rem; font-weight: 700; margin-left: 0.35rem;
+}
+.stock-badge--low { background: #fef3c7; color: #92400e; }
+
+/* ── Erreur catalogue + retry ── */
+.load-error { color: #e53e3e !important; }
+.retry-btn {
+  background: none; border: none; font-family: inherit; font-size: inherit;
+  color: #2e9cab; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline;
+}
+.retry-btn:hover { color: #1f7f97; }
 
 /* ── Options avancées ── */
 .toggle-link {
