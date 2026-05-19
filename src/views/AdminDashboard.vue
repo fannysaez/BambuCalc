@@ -130,230 +130,27 @@
     </div>
 
     <!-- ── Onglet Clients ── -->
-    <div v-if="activeTab === 'clients'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">Clients</h2>
-        <div class="user-filters">
-          <button v-for="f in userFilters" :key="f.id"
-            :class="['uf-btn', userFilter === f.id && 'uf-btn--active']"
-            @click="userFilter = f.id">
-            {{ f.label }}<span class="uf-count">{{ f.count }}</span>
-          </button>
-        </div>
-      </div>
-
-      <div v-if="loading" class="empty-state"><div class="spinner" /><p>Chargement…</p></div>
-      <div v-else-if="filteredProfiles.length === 0" class="empty-state">
-        <Users class="empty-icon" />
-        <p class="empty-title">Aucun client</p>
-      </div>
-      <div v-else class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Nom</th>
-              <th>Email</th>
-              <th>Nb devis</th>
-              <th>Inscription</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in filteredProfiles" :key="p.id">
-              <td class="td-name">
-                <span v-if="p.full_name">{{ p.full_name }}</span>
-                <span v-else-if="quoteInfoByUser[p.id]?.name" class="anon-info">
-                  {{ quoteInfoByUser[p.id].name }}
-                  <span class="badge-anon">Invité</span>
-                </span>
-                <span v-else class="text-muted">—</span>
-              </td>
-              <td class="td-email">
-                <span v-if="p.email">{{ p.email }}</span>
-                <span v-else-if="quoteInfoByUser[p.id]?.email">{{ quoteInfoByUser[p.id].email }}</span>
-                <span v-else class="text-muted">—</span>
-              </td>
-              <td class="td-center">
-                <button class="badge badge--link" @click="goToClientQuotes(p.id)"
-                  :title="quoteCountFor(p.id) > 0 ? 'Voir les devis' : ''">
-                  {{ quoteCountFor(p.id) }}
-                  <span v-if="quoteCountFor(p.id) > 0" class="badge-arrow">→</span>
-                </button>
-              </td>
-              <td class="td-date">{{ fmtDate(p.created_at) }}</td>
-              <td class="td-actions">
-                <button class="btn-del"
-                  :disabled="p.id === currentUserId"
-                  :title="p.id === currentUserId ? 'Impossible de supprimer votre propre compte' : 'Supprimer'"
-                  @click="p.id !== currentUserId && confirmDeleteUser(p)">
-                  <Trash2 class="del-icon" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <ClientsTab
+      v-if="activeTab === 'clients'"
+      :quotes="quotes"
+      :profiles="profiles"
+      :loading="loading"
+      :current-user-id="currentUserId"
+      @delete-user="confirmDeleteUser($event)"
+      @go-to-quotes="onGoToQuotes($event)"
+    />
 
     <!-- ── Onglet Devis ── -->
-    <div v-if="activeTab === 'quotes'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">
-          Tous les devis
-          <span v-if="filterUserId" class="filter-active-badge">
-            {{ clientLabelFor(filterUserId) }}
-            <button class="clear-filter" @click="filterUserId = ''" title="Effacer le filtre">×</button>
-          </span>
-        </h2>
-        <div class="panel-actions">
-          <select class="filter-select" v-model="filterUserId">
-            <option value="">Tous les clients</option>
-            <option v-for="p in visibleProfiles" :key="p.id" :value="p.id">
-              {{ p.full_name || quoteInfoByUser[p.id]?.name || p.id.slice(0, 8) }}
-            </option>
-          </select>
-          <button class="btn-export" @click="exportPDF">
-            <Download class="btn-export-icon" />Export PDF
-          </button>
-        </div>
-      </div>
-
-      <div v-if="loading" class="empty-state"><div class="spinner" /><p>Chargement…</p></div>
-      <div v-else-if="filteredQuotes.length === 0" class="empty-state">
-        <FileText class="empty-icon" />
-        <p class="empty-title">Aucun devis</p>
-      </div>
-      <template v-else>
-
-        <!-- ══ Vue Tableau — Desktop & Tablette (≥ 641 px) ══ -->
-        <div class="quotes-table-view">
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>N° Devis</th>
-                  <th>Pièce</th>
-                  <th class="th-hide-sm">Client</th>
-                  <th class="th-hide-sm">Matière</th>
-                  <th>Total TTC</th>
-                  <th>Statut</th>
-                  <th class="th-hide-md">Créé par</th>
-                  <th class="th-hide-md">Date</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="q in paginatedQuotes" :key="q.id">
-                  <td class="td-num">{{ q.quote_number || '—' }}</td>
-                  <td class="td-name">{{ q.project_name || '—' }}</td>
-                  <td class="td-client td-hide-sm">
-                    <button class="client-link" @click="goToClientQuotes(q.user_id)" title="Filtrer ce client">
-                      {{ q.client_name || '—' }}
-                    </button>
-                  </td>
-                  <td class="td-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
-                  <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
-                  <td>
-                    <select :class="['status-select', 'status-' + (q.status || 'pending')]"
-                      :value="q.status || 'pending'"
-                      @change="changeStatus(q, $event.target.value)">
-                      <option value="pending">En attente</option>
-                      <option value="sent">Envoyé</option>
-                      <option value="accepted">Accepté</option>
-                      <option value="refused">Refusé</option>
-                    </select>
-                  </td>
-                  <td class="td-creator td-hide-md">{{ creatorOf(q.user_id) }}</td>
-                  <td class="td-date td-hide-md">{{ fmtDate(q.created_at) }}</td>
-                  <td class="td-actions">
-                    <button class="btn-edit" @click="editQuote(q)" title="Compléter / modifier">
-                      <Pencil class="del-icon" />
-                    </button>
-                    <button class="btn-pdf" @click="generateQuotePDF(q)" title="Télécharger PDF">
-                      <Download class="del-icon" />
-                    </button>
-                    <button v-if="q.status === 'accepted' && q.client_email"
-                      class="btn-send-row" @click="sendTarget = q" title="Envoyer par e-mail">
-                      <Send class="del-icon" />
-                    </button>
-                    <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
-                      <Trash2 class="del-icon" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- Pagination compacte tableau -->
-          <div v-if="totalQuotesPages > 1" class="pagination quotes-pgn">
-            <button class="page-btn" :disabled="quotesPage === 1" @click="quotesPage--">← Préc.</button>
-            <span class="quotes-pgn-info">Page {{ quotesPage }} / {{ totalQuotesPages }}</span>
-            <button class="page-btn" :disabled="quotesPage === totalQuotesPages" @click="quotesPage++">Suiv. →</button>
-          </div>
-        </div>
-
-        <!-- ══ Vue Cartes — Mobile (≤ 640 px) ══ -->
-        <div class="quotes-cards-view">
-          <div
-            v-for="q in paginatedQuotes"
-            :key="q.id"
-            class="qcard"
-          >
-            <!-- Ligne 1 : Nom du client + Badge statut -->
-            <div class="qcard-top">
-              <button class="qcard-client client-link" @click="goToClientQuotes(q.user_id)">
-                {{ q.client_name || '—' }}
-              </button>
-              <span :class="['qcard-badge', 'arch-status--' + (q.status || 'pending')]">
-                {{ { pending: 'En attente', sent: 'Envoyé', accepted: 'Accepté', refused: 'Refusé' }[q.status] || 'En attente' }}
-              </span>
-            </div>
-            <!-- Ligne 2 : Pièce + N° devis + Matière -->
-            <div class="qcard-meta">
-              <p class="qcard-piece">{{ q.project_name || '—' }}</p>
-              <p class="qcard-sub">
-                N°&nbsp;{{ q.quote_number || '—' }}
-                <span v-if="q.material" class="mat-tag">{{ q.material }}</span>
-              </p>
-            </div>
-            <!-- Ligne 3 : Date + Total TTC -->
-            <div class="qcard-row">
-              <span class="qcard-date">{{ fmtDate(q.created_at) }}</span>
-              <span class="qcard-total">{{ fmtEur(q.total_cost) }}</span>
-            </div>
-            <!-- Ligne 4 : Select statut + Boutons d'action -->
-            <div class="qcard-bottom">
-              <select
-                :class="['status-select', 'qcard-status-sel', 'status-' + (q.status || 'pending')]"
-                :value="q.status || 'pending'"
-                @change="changeStatus(q, $event.target.value)"
-              >
-                <option value="pending">En attente</option>
-                <option value="sent">Envoyé</option>
-                <option value="accepted">Accepté</option>
-                <option value="refused">Refusé</option>
-              </select>
-              <div class="qcard-actions">
-                <button class="btn-edit" @click="editQuote(q)" title="Modifier"><Pencil class="del-icon" /></button>
-                <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF"><Download class="del-icon" /></button>
-                <button v-if="q.status === 'accepted' && q.client_email"
-                  class="btn-send-row" @click="sendTarget = q" title="Envoyer par e-mail">
-                  <Send class="del-icon" />
-                </button>
-                <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer"><Trash2 class="del-icon" /></button>
-              </div>
-            </div>
-          </div>
-          <!-- Pagination compacte cartes -->
-          <div v-if="totalQuotesPages > 1" class="pagination quotes-pgn">
-            <button class="page-btn" :disabled="quotesPage === 1" @click="quotesPage--">← Préc.</button>
-            <span class="quotes-pgn-info">Page {{ quotesPage }} / {{ totalQuotesPages }}</span>
-            <button class="page-btn" :disabled="quotesPage === totalQuotesPages" @click="quotesPage++">Suiv. →</button>
-          </div>
-        </div>
-
-      </template>
-    </div>
+    <QuotesTab
+      v-if="activeTab === 'quotes'"
+      :quotes="quotes"
+      :profiles="profiles"
+      :loading="loading"
+      :initial-filter-user-id="quotesFilterUserId"
+      @delete-quote="confirmDeleteQuote($event)"
+      @open-send-modal="sendTarget = $event"
+      @reload="loadData"
+    />
 
     <!-- ── Onglet Emails ── -->
     <EmailsTab
@@ -514,6 +311,8 @@ import GestionDevisTab    from '../components/admin/GestionDevisTab.vue'
 import EmailsTab          from '../components/admin/EmailsTab.vue'
 import ArchivesTab        from '../components/admin/ArchivesTab.vue'
 import StatsTab           from '../components/admin/StatsTab.vue'
+import ClientsTab         from '../components/admin/ClientsTab.vue'
+import QuotesTab          from '../components/admin/QuotesTab.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
   Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
@@ -526,7 +325,7 @@ import autoTable from 'jspdf-autotable'
 export default {
   name: 'AdminDashboard',
   components: {
-    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab, EmailsTab, ArchivesTab, StatsTab,
+    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab, EmailsTab, ArchivesTab, StatsTab, ClientsTab, QuotesTab,
     ShieldCheck, Users, FileText, Wallet, TrendingUp,
     Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
     Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
@@ -544,8 +343,7 @@ export default {
       quotes: [],
       loading: true,
       activeTab: 'clients',
-      userFilter: 'all',
-      filterUserId: '',
+      quotesFilterUserId: '',
       deleteTarget: null,
       deleting: false,
       senderName:       saved.senderName       || 'BambuCalc',
@@ -554,8 +352,6 @@ export default {
       attachPdfAuto:    saved.attachPdfAuto    ?? true,
       sendTarget: null,
       isSending: false,
-      quotesPage: 1,
-      quotesPerPage: 10,
       // ── UI état ──────────────────────────────────────────────────────────
       dossierDropdownOpen: false,
       burgerOpen: false,
@@ -589,58 +385,23 @@ export default {
     },
     totalRevenue() { return this.quotes.reduce((a, q) => a + (q.total_cost || 0), 0) },
     avgCost()      { return this.quotes.length ? this.totalRevenue / this.quotes.length : 0 },
-    filteredQuotes() {
-      if (!this.filterUserId) return this.quotes
-      return this.quotes.filter(q => q.user_id === this.filterUserId)
-    },
     quoteInfoByUser() {
       const map = {}
       for (const q of this.quotes) {
-        if (!map[q.user_id] && (q.client_name || q.client_email)) {
+        if (!map[q.user_id] && (q.client_name || q.client_email))
           map[q.user_id] = { name: q.client_name || '', email: q.client_email || '' }
-        }
       }
       return map
     },
-    visibleProfiles() {
-      return this.profiles.filter(p => {
-        const isAnon = !p.full_name && !p.email
-        return isAnon ? this.quoteCountFor(p.id) > 0 : true
-      })
-    },
-    clientProfiles() {
-      return this.visibleProfiles.filter(p => p.id !== this.currentUserId && !!(p.full_name || p.email))
-    },
-    guestProfiles() {
-      return this.visibleProfiles.filter(p => !p.full_name && !p.email)
-    },
-    filteredProfiles() {
-      if (this.userFilter === 'clients') return this.clientProfiles
-      if (this.userFilter === 'guests')  return this.guestProfiles
-      return this.visibleProfiles.filter(p => p.id !== this.currentUserId)
-    },
-    userFilters() {
-      const total = this.visibleProfiles.filter(p => p.id !== this.currentUserId).length
-      return [
-        { id: 'all',     label: 'Tous',    count: total },
-        { id: 'clients', label: 'Clients', count: this.clientProfiles.length },
-        { id: 'guests',  label: 'Invités', count: this.guestProfiles.length },
-      ]
-    },
     clientCount() {
-      return this.visibleProfiles.filter(p => p.id !== this.currentUserId).length
-    },
-    paginatedQuotes() {
-      const start = (this.quotesPage - 1) * this.quotesPerPage
-      return this.filteredQuotes.slice(start, start + this.quotesPerPage)
-    },
-    totalQuotesPages() {
-      return Math.max(1, Math.ceil(this.filteredQuotes.length / this.quotesPerPage))
+      return this.profiles.filter(p => {
+        if (p.id === this.currentUserId) return false
+        const isAnon = !p.full_name && !p.email
+        return isAnon ? this.quotes.some(q => q.user_id === p.id) : true
+      }).length
     },
   },
-  watch: {
-    filterUserId() { this.quotesPage = 1 },
-  },
+  watch: {},
   async created() {
     const { data, error } = await supabase.auth.getUser()
     if (error || !data.user) {
@@ -680,18 +441,8 @@ export default {
     quoteCountFor(userId) {
       return this.quotes.filter(q => q.user_id === userId).length
     },
-    creatorOf(userId) {
-      const p = this.profiles.find(p => p.id === userId)
-      return p ? (p.full_name?.split(' ')[0] || p.email?.split('@')[0] || '—') : '—'
-    },
-    clientLabelFor(userId) {
-      const p = this.profiles.find(p => p.id === userId)
-      return p?.full_name || this.quoteInfoByUser[userId]?.name || p?.email || userId?.slice(0, 8) || '?'
-    },
-    goToClientQuotes(userId) {
-      if (!this.quoteCountFor(userId)) return
-      this.filterUserId = userId
-      this.quotesPage = 1
+    onGoToQuotes(userId) {
+      this.quotesFilterUserId = userId
       this.activeTab = 'quotes'
     },
     confirmDeleteQuote(q) { this.deleteTarget = { type: 'quote', data: q } },
@@ -721,105 +472,12 @@ export default {
       this.calculatorStore.resetForNewQuote()
       this.$router.push('/calculator/1')
     },
-    editQuote(q) {
-      this.calculatorStore.$patch({
-        editingQuoteId:    q.id,
-        quoteNumber:       q.quote_number        || '',
-        quoteDate:         q.quote_date          || '',
-        quoteValidityDays: q.quote_validity_days ?? 30,
-        paymentMethod:     q.payment_method      || 'virement',
-        depositPercent:    q.deposit_percent     ?? 0,
-        quoteNotes:        q.quote_notes         || '',
-        clientType:        q.client_type         || 'particulier',
-        clientCivility:    q.client_civility     || 'M.',
-        clientFirstName:   q.client_first_name   || '',
-        clientLastName:    q.client_last_name    || '',
-        clientName:        q.client_name         || '',
-        clientContactName: q.client_contact_name || '',
-        clientEmail:       q.client_email        || '',
-        clientPhone:       q.client_phone        || '',
-        clientAddress:     q.client_address      || '',
-        clientPostalCode:  q.client_postal_code  || '',
-        clientCity:        q.client_city         || '',
-        clientCountry:     q.client_country      || 'France',
-        clientSiret:       q.client_siret        || '',
-        clientVatNumber:   q.client_vat_number   || '',
-        projectName:       q.project_name        || '',
-        quantity:          q.quantity            ?? 1,
-        printProfile:      q.print_profile       || 'normal',
-        printerModel:      q.printer_model       || 'p2s-combo',
-        nozzleSize:        q.nozzle_size         || '0.4',
-        material:          q.material            || 'PLA+',
-        costPerKg:         q.cost_per_kg         ?? 16.99,
-        weight:            q.weight              ?? 0,
-        lossPercent:       q.loss_percent        ?? 5,
-        colorCount:        q.color_count         ?? 1,
-        purgeWaste:        q.purge_waste         ?? 0,
-        printHours:        q.print_hours         ?? 0,
-        printMinutes:      q.print_minutes       ?? 0,
-        prepTime:          q.prep_time           ?? 15,
-        postTime:          q.post_time           ?? 0,
-        hourlyRate:        q.hourly_rate         ?? 20,
-        packagingCost:     q.packaging_cost      ?? 0,
-        taxRate:           q.tax_rate            ?? 20,
-        selectedPricing:   q.selected_pricing    || 'standard',
-        customMargin:      q.custom_margin       ?? 50,
-        referenceImage:    null,
-        referenceImageUrl: q.reference_image_url || '',
-      })
-      this.$router.push({ path: '/calculator/3', query: { editId: q.id } })
-    },
     generateQuotePDF,
-    async changeStatus(quote, newStatus) {
-      const { error } = await supabase.from('quotes').update({ status: newStatus }).eq('id', quote.id)
-      if (error) { this.$refs.toast.show('Erreur lors de la mise à jour du statut.', 'error'); return }
-      quote.status = newStatus
-      this.$refs.toast.show('Statut mis à jour.', 'success', 1800)
-    },
     onEmailSettingsChanged(s) {
       this.senderName       = s.senderName
       this.emailSubject     = s.emailSubject
       this.emailIntroClient = s.emailIntroClient
       this.attachPdfAuto    = s.attachPdfAuto
-    },
-    exportPDF() {
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-      const rows = this.filteredQuotes
-      const dateExport = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date())
-      doc.setFillColor(46, 156, 171)
-      doc.rect(0, 0, 297, 22, 'F')
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(16); doc.setFont('helvetica', 'bold')
-      doc.text('BambuCalc', 14, 10)
-      doc.setFontSize(10); doc.setFont('helvetica', 'normal')
-      doc.text('Export des devis', 14, 17)
-      doc.setFontSize(9)
-      doc.text(`Généré le ${dateExport}`, 297 - 14, 14, { align: 'right' })
-      doc.setTextColor(30, 47, 57); doc.setFontSize(9); doc.setFont('helvetica', 'normal')
-      const totalRev = rows.reduce((a, q) => a + (q.total_cost || 0), 0)
-      doc.text(`${rows.length} devis  •  Total : ${this.fmtEur(totalRev)}  •  Moyenne : ${this.fmtEur(rows.length ? totalRev / rows.length : 0)}`, 14, 30)
-      autoTable(doc, {
-        startY: 34,
-        head: [['N° Devis', 'Pièce', 'Client', 'Email client', 'Matière', 'Qté', 'Total TTC', 'Créé par', 'Date']],
-        body: rows.map(q => [
-          q.quote_number || '—', q.project_name || '—', q.client_name || '—',
-          q.client_email || '—', q.material || '—', q.quantity ?? 1,
-          this.fmtEur(q.total_cost), this.creatorOf(q.user_id),
-          q.created_at ? new Date(q.created_at).toLocaleDateString('fr-FR') : '—',
-        ]),
-        styles: { fontSize: 8, cellPadding: 3, textColor: [30, 47, 57] },
-        headStyles: { fillColor: [46, 156, 171], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-        alternateRowStyles: { fillColor: [248, 252, 255] },
-        columnStyles: {
-          0: { cellWidth: 32 }, 5: { cellWidth: 12, halign: 'center' },
-          6: { cellWidth: 24, halign: 'right', fontStyle: 'bold' }, 8: { cellWidth: 22 },
-        },
-        didDrawPage: (data) => {
-          doc.setFontSize(8); doc.setTextColor(160, 174, 192)
-          doc.text(`Page ${data.pageNumber} / ${doc.internal.getNumberOfPages()}  —  BambuCalc`, 297 / 2, 205, { align: 'center' })
-        },
-      })
-      doc.save(`bambucalc-devis-${new Date().toISOString().split('T')[0]}.pdf`)
     },
     resolvedSubject(quote) {
       const civility  = quote.client_civility ? quote.client_civility + ' ' : ''
