@@ -995,172 +995,10 @@
     />
 
     <!-- ── Onglet Paramètres ── -->
-    <div v-if="activeTab === 'settings'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">Paramètres de calcul</h2>
-        <span v-if="settingsLoading" class="settings-loading-badge">Chargement…</span>
-      </div>
-
-      <!-- ══ Paramètres + Simulateur intégré ══ -->
-      <div class="settings-single-col">
-        <div class="settings-main-card">
-
-          <!-- Corps scrollable — flex:1 absorbe tout l'espace disponible -->
-          <div class="settings-card-body">
-
-            <!-- Grille 2 colonnes : Machine | Marge -->
-            <div class="settings-params-grid">
-              <div class="settings-section">
-                <p class="settings-section-title">Machine & Main d'œuvre</p>
-                <div class="settings-row">
-                  <label class="settings-label">Tarif horaire</label>
-                  <div class="settings-input-wrap">
-                    <input class="settings-input" type="number" min="0" step="0.5" v-model.number="priceHourlyRate" />
-                    <span class="settings-unit">€/h</span>
-                  </div>
-                </div>
-                <div class="settings-row">
-                  <label class="settings-label">Électricité</label>
-                  <div class="settings-input-wrap">
-                    <input class="settings-input" type="number" min="0" step="0.01" v-model.number="priceElecPerHour" />
-                    <span class="settings-unit">€/h</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-section">
-                <p class="settings-section-title">Marge & Tarification</p>
-                <div class="settings-row">
-                  <label class="settings-label">Marge standard</label>
-                  <div class="settings-input-wrap">
-                    <input class="settings-input" type="number" min="0" max="300" step="5" v-model.number="priceMarginDefault" />
-                    <span class="settings-unit">%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Catalogue info — bannière sous la grille -->
-            <div class="settings-section settings-section--wide">
-              <p class="settings-section-title">Informations catalogue</p>
-              <div class="settings-row">
-                <span class="settings-label">Filaments enregistrés</span>
-                <span class="settings-catalogue-count">{{ materials.length }} filament{{ materials.length > 1 ? 's' : '' }}</span>
-              </div>
-              <p class="settings-intro-inline" style="padding: 0 0.75rem 0.4rem;">
-                Gérez vos matières depuis l'onglet
-                <button class="settings-link-tab" @click="activeTab = 'catalogue'">Catalogue →</button>
-              </p>
-            </div>
-
-            <!-- ═══ Simulateur de coût rapide intégré ═══ -->
-            <div class="settings-sim-section">
-              <div class="settings-sim-hdr">
-                <BarChart2 class="settings-sim-hdr-icon" />
-                <span class="settings-sim-hdr-title">Simulateur de coût rapide</span>
-              </div>
-
-              <!-- Inputs : grille 4 cols desktop, 2 cols tablette, 1 col mobile -->
-              <div class="settings-sim-inputs">
-                <div class="settings-sim-field">
-                  <label class="settings-sim-lbl">Poids de la pièce</label>
-                  <div class="settings-sim-iw">
-                    <input class="settings-sim-input" type="number" min="0" step="1" v-model.number="simWeight" />
-                    <span class="settings-sim-unit">g</span>
-                  </div>
-                </div>
-                <div class="settings-sim-field">
-                  <label class="settings-sim-lbl">Durée d'impression</label>
-                  <div class="settings-sim-duration">
-                    <div class="settings-sim-iw">
-                      <input class="settings-sim-input settings-sim-input--sm" type="number" min="0" max="99" step="1" v-model.number="simPrintHours" />
-                      <span class="settings-sim-unit">h</span>
-                    </div>
-                    <div class="settings-sim-iw">
-                      <input class="settings-sim-input settings-sim-input--sm" type="number" min="0" max="59" step="5" v-model.number="simPrintMinutes" />
-                      <span class="settings-sim-unit">min</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="settings-sim-field">
-                  <label class="settings-sim-lbl">Matière</label>
-                  <div class="sim-mat-select-wrap">
-                    <img v-if="simSelectedMaterial && isImageUrl(simSelectedMaterial.color_or_image)"
-                         class="sim-mat-indicator sim-mat-indicator--img"
-                         :src="simSelectedMaterial.color_or_image" :alt="simSelectedMaterial.name" />
-                    <span v-else-if="simSelectedMaterial"
-                          class="sim-mat-indicator sim-mat-indicator--swatch"
-                          :style="{ background: isHexColor(simSelectedMaterial.color_or_image) ? simSelectedMaterial.color_or_image : '#2e9cab' }">
-                    </span>
-                    <select class="sim-select" v-model="simMaterialId">
-                      <option :value="null">— Globaux —</option>
-                      <option v-for="m in materials" :key="m.id || m.name" :value="m.id">
-                        {{ m.name }}{{ m.brand ? ' · ' + m.brand : '' }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-                <div class="settings-sim-field">
-                  <label class="settings-sim-lbl">Type de projet</label>
-                  <select class="sim-select" v-model="simProjectType">
-                    <option v-for="pt in projectTypes" :key="pt.id" :value="pt.id">{{ pt.label }}</option>
-                  </select>
-                  <div v-if="simProjectCoeff !== 1" class="sim-coeff-badge" style="margin-top:0.35rem">
-                    <span class="sim-coeff-text">Coeff :</span>
-                    <strong class="sim-coeff-value">{{ simProjectCoeff > 1 ? '+' : '' }}{{ Math.round((simProjectCoeff - 1) * 100) }}%</strong>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Résultats : bande horizontale -->
-              <div class="settings-sim-results">
-                <div class="settings-sim-result">
-                  <span class="settings-sim-result-lbl">Matière{{ simSelectedMaterial ? ' · ' + simSelectedMaterial.name : '' }}</span>
-                  <strong class="settings-sim-result-val">{{ fmtEur(simMaterialCost) }}</strong>
-                </div>
-                <div class="settings-sim-result-sep"></div>
-                <div class="settings-sim-result">
-                  <span class="settings-sim-result-lbl">Machine + élec.</span>
-                  <strong class="settings-sim-result-val">{{ fmtEur(simMachineCost) }}</strong>
-                </div>
-                <div class="settings-sim-result-sep"></div>
-                <div class="settings-sim-result settings-sim-result--neutral">
-                  <span class="settings-sim-result-lbl">Coût de revient</span>
-                  <strong class="settings-sim-result-val">{{ fmtEur(simTotalCost) }}</strong>
-                </div>
-                <div class="settings-sim-result-sep"></div>
-                <div class="settings-sim-result settings-sim-result--margin">
-                  <span class="settings-sim-result-lbl">Marge ({{ priceMarginDefault }}%)</span>
-                  <strong class="settings-sim-result-val">+ {{ fmtEur(simMarginAmount) }}</strong>
-                </div>
-                <div class="settings-sim-result-sep"></div>
-                <div class="settings-sim-result settings-sim-result--total">
-                  <span class="settings-sim-result-lbl">Prix de vente estimé</span>
-                  <strong class="settings-sim-result-val">{{ fmtEur(simSalePrice) }}</strong>
-                </div>
-              </div>
-              <p class="sim-disclaimer">*Indicatif — hors emballage, post-traitement et remises.</p>
-            </div>
-
-          </div>
-          <!-- /settings-card-body -->
-
-          <!-- Footer ancré en bas — deux boutons centrés -->
-          <div class="settings-single-footer">
-            <button class="btn-save-settings" @click="saveSettings" :disabled="settingsSaving || settingsLoading">
-              <span v-if="settingsSaved">✓ Sauvegardé</span>
-              <span v-else-if="settingsSaving">Sauvegarde…</span>
-              <span v-else>Sauvegarder les paramètres</span>
-            </button>
-            <button class="btn-settings-next" @click="activeTab = 'catalogue'">
-              Catalogue →
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-    </div>
+    <SettingsTab
+      v-if="activeTab === 'settings'"
+      @go-to="activeTab = $event"
+    />
 
     <!-- ── Modal envoi devis ── -->
     <Teleport to="body">
@@ -1263,6 +1101,7 @@ import { useCalculatorStore } from '../stores/calculator'
 import ToastMessage       from '../components/ToastMessage.vue'
 import CatalogueSection   from '../components/CatalogueSection.vue'
 import CatalogueTab       from '../components/admin/CatalogueTab.vue'
+import SettingsTab        from '../components/admin/SettingsTab.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
   Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
@@ -1275,7 +1114,7 @@ import autoTable from 'jspdf-autotable'
 export default {
   name: 'AdminDashboard',
   components: {
-    ToastMessage, CatalogueSection, CatalogueTab,
+    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab,
     ShieldCheck, Users, FileText, Wallet, TrendingUp,
     Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
     Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
@@ -1322,39 +1161,10 @@ export default {
       globalAttachment:    null,
       // ── Archives ──────────────────────────────────────────────────────────
       archiveYear: new Date().getFullYear(),
-      // ── Paramètres de prix (chargés depuis Supabase → bambu_settings) ─────
-      pricePlaPerKg:      16.99,
-      priceHourlyRate:    20,
-      priceElecPerHour:   0.5,
-      priceLossPercent:   5,
-      priceMarginDefault: 50,
-      settingsSaved:   false,
-      settingsSaving:  false,
-      settingsLoading: false,
-      // ── Simulateur de coût rapide ─────────────────────────────────────────
-      simWeight:       50,
-      simPrintHours:   1,
-      simPrintMinutes: 30,
-      // ── Catalogue matières (materials chargé pour le simulateur des Paramètres) ─
-      materials:        [],
-      materialsLoading: false,
-      fallbackMaterials: [
-        { id: null, _local: true, name: 'Sunlu PLA',          brand: 'Sunlu',  type: 'PLA',      cost_per_kg: 20, default_waste_percentage: 10, color_or_image: '#3B82F6', image_url: null, stock_status: 'En Stock' },
-        { id: null, _local: true, name: 'Eryone PLA+',        brand: 'Eryone', type: 'PLA+',     cost_per_kg: 22, default_waste_percentage: 10, color_or_image: '#EF4444', image_url: null, stock_status: 'En Stock' },
-        { id: null, _local: true, name: 'Eryone PLA HS 2.0',  brand: 'Eryone', type: 'PLA HS 2.0', cost_per_kg: 24, default_waste_percentage: 10, color_or_image: '#22C55E', image_url: null, stock_status: 'En Stock' },
-        { id: null, _local: true, name: 'Eryone PLA Silk',    brand: 'Eryone', type: 'PLA Silk', cost_per_kg: 25, default_waste_percentage: 10, color_or_image: '#F59E0B', image_url: null, stock_status: 'En Stock' },
-        { id: null, _local: true, name: 'Eryone PLA Galaxy',  brand: 'Eryone', type: 'PLA Galaxy', cost_per_kg: 25, default_waste_percentage: 10, color_or_image: '#8B5CF6', image_url: null, stock_status: 'En Stock' },
-        { id: null, _local: true, name: 'Sunlu PETG',         brand: 'Sunlu',  type: 'PETG',     cost_per_kg: 22, default_waste_percentage: 12, color_or_image: '#6B7280', image_url: null, stock_status: 'En Stock' },
-      ],
-      // ── Simulateur — sélecteurs ────────────────────────────────────────────
-      simMaterialId:  null,
-      simProjectType: 'standard',
-      simStep:        1,
       // ── UI état ──────────────────────────────────────────────────────────
       dossierDropdownOpen: false,
       burgerOpen: false,
       catalogueCount: 0,
-      settingsPage:        1,
       managePage:          1,
       managePaginePage:    1,
       emailStep:           1,
@@ -1367,7 +1177,7 @@ export default {
         { id: 'emails',    label: 'Emails',        icon: 'Mail' },
         { id: 'archives',  label: 'Archives',      icon: 'Archive',          count: this.filteredArchives.length },
         { id: 'stats',     label: 'Statistiques',  icon: 'BarChart2' },
-        { id: 'catalogue', label: 'Catalogue',     icon: 'Package',          count: this.catalogueCount || this.materials.length },
+        { id: 'catalogue', label: 'Catalogue',     icon: 'Package',          count: this.catalogueCount || 0 },
         { id: 'settings',  label: 'Paramètres',    icon: 'SlidersHorizontal' },
       ]
     },
@@ -1443,50 +1253,6 @@ export default {
     statsAcceptanceRate() {
       return this.quotes.length ? Math.round(this.statsAccepted / this.quotes.length * 100) : 0
     },
-    // ── Simulateur de coût rapide ──────────────────────────────────────────
-    simPrintDuration() {
-      return (this.simPrintHours || 0) + (this.simPrintMinutes || 0) / 60
-    },
-    simSelectedMaterial() {
-      if (!this.simMaterialId) return null
-      return this.materials.find(m => m.id === this.simMaterialId) || null
-    },
-    simEffectivePricePerKg() {
-      return this.simSelectedMaterial ? (this.simSelectedMaterial.cost_per_kg || 0) : (this.pricePlaPerKg || 0)
-    },
-    simEffectiveLossPercent() {
-      return this.simSelectedMaterial ? (this.simSelectedMaterial.default_waste_percentage || 0) : (this.priceLossPercent || 0)
-    },
-    projectTypes() {
-      return [
-        { id: 'standard',    label: 'Standard (×1.0)',           coeff: 1.00 },
-        { id: 'figurine',    label: 'Figurine (+30%)',           coeff: 1.30 },
-        { id: 'serie',       label: 'Série porte-clés (−15%)',   coeff: 0.85 },
-        { id: 'cartevisite', label: 'Cartes de visite 3D (+5%)', coeff: 1.05 },
-        { id: 'standqr',     label: 'Stand QR Code (+10%)',      coeff: 1.10 },
-        { id: 'deco',        label: 'Décoration (×1.0)',         coeff: 1.00 },
-      ]
-    },
-    simProjectCoeff() {
-      const pt = this.projectTypes.find(p => p.id === this.simProjectType)
-      return pt ? pt.coeff : 1
-    },
-    simMaterialCost() {
-      const w = (this.simWeight || 0) / 1000
-      return w * this.simEffectivePricePerKg * (1 + this.simEffectiveLossPercent / 100)
-    },
-    simMachineCost() {
-      return this.simPrintDuration * ((this.priceHourlyRate || 0) + (this.priceElecPerHour || 0))
-    },
-    simTotalCost() {
-      return this.simMaterialCost + this.simMachineCost
-    },
-    simSalePrice() {
-      return this.simTotalCost * this.simProjectCoeff * (1 + (this.priceMarginDefault || 0) / 100)
-    },
-    simMarginAmount() {
-      return this.simSalePrice - this.simTotalCost
-    },
     filteredQuotes() {
       if (!this.filterUserId) return this.quotes
       return this.quotes.filter(q => q.user_id === this.filterUserId)
@@ -1556,7 +1322,7 @@ export default {
     const meta = data.user.user_metadata || {}
     const full = meta.full_name || meta.name || ''
     this.displayName = full.split(' ')[0] || data.user.email?.split('@')[0] || ''
-    await Promise.all([this.loadData(), this.loadEmailSettings(), this.loadGlobalSettings(), this.loadMaterials()])
+    await Promise.all([this.loadData(), this.loadEmailSettings()])
     this.autoSelectFirstQuote()
   },
   mounted() {
@@ -2048,107 +1814,6 @@ export default {
       this.globalAttachmentName = ''
       if (this.$refs.attachInput) this.$refs.attachInput.value = ''
       localStorage.removeItem('bambu_global_attachment_name')
-    },
-    async loadGlobalSettings() {
-      this.settingsLoading = true
-      try {
-        const { data, error } = await supabase
-          .from('bambu_settings')
-          .select('*')
-          .single()
-        if (error) {
-          if (error.code !== 'PGRST116') {
-            console.warn('[loadGlobalSettings]', error.code, error.message)
-          }
-          return
-        }
-        if (!data) return
-        this.pricePlaPerKg      = parseFloat(data.price_pla_per_kg)     || 16.99
-        this.priceHourlyRate    = parseFloat(data.price_hourly_rate)     || 20
-        this.priceElecPerHour   = parseFloat(data.price_elec_per_hour)   || 0.5
-        this.priceLossPercent   = parseFloat(data.price_loss_percent)    || 5
-        this.priceMarginDefault = parseFloat(data.price_margin_default)  || 50
-      } finally {
-        this.settingsLoading = false
-      }
-    },
-    async saveSettings() {
-      this.settingsSaving = true
-      try {
-        const { error } = await supabase
-          .from('bambu_settings')
-          .upsert({
-            id:                   1,
-            price_pla_per_kg:     this.pricePlaPerKg,
-            price_hourly_rate:    this.priceHourlyRate,
-            price_elec_per_hour:  this.priceElecPerHour,
-            price_loss_percent:   this.priceLossPercent,
-            price_margin_default: this.priceMarginDefault,
-            updated_at:           new Date().toISOString(),
-          }, { onConflict: 'id' })
-        if (error) throw error
-        this.settingsSaved = true
-        setTimeout(() => { this.settingsSaved = false }, 2500)
-        this.$refs.toast?.show('Paramètres de prix sauvegardés dans Supabase.', 'success', 2500)
-      } catch (err) {
-        console.error('[saveSettings]', err)
-        this.$refs.toast?.show(`Erreur sauvegarde : ${err.message}`, 'error')
-      } finally {
-        this.settingsSaving = false
-      }
-    },
-    async loadMaterials() {
-      this.materialsLoading = true
-      try {
-        const { data, error } = await supabase
-          .from('bambu_materials')
-          .select('*')
-          .order('created_at', { ascending: true })
-
-        if (error) {
-          // Affiche le vrai code d'erreur pour diagnostiquer (RLS, table manquante, réseau…)
-          console.error('[loadMaterials] Supabase error —', error.code, ':', error.message, error.hint || '')
-          // Catalogue de secours local pour ne jamais laisser l'UI vide
-          if (!this.materials.length) this.materials = this.fallbackMaterials.map(m => ({ ...m }))
-          return
-        }
-
-        if (!data || data.length === 0) {
-          // Table vide → seed automatique du catalogue par défaut
-          const defaults = this.fallbackMaterials.map(({ id, _local, ...m }) => m)
-          const { error: seedErr } = await supabase.from('bambu_materials').insert(defaults)
-          if (seedErr) {
-            console.error('[loadMaterials] seed failed —', seedErr.code, ':', seedErr.message)
-            this.materials = this.fallbackMaterials.map(m => ({ ...m }))
-            return
-          }
-          const { data: seeded, error: reloadErr } = await supabase
-            .from('bambu_materials').select('*').order('created_at', { ascending: true })
-          if (reloadErr || !seeded?.length) {
-            this.materials = this.fallbackMaterials.map(m => ({ ...m }))
-            return
-          }
-          this.materials = seeded
-          return
-        }
-
-        this.materials = data
-      } finally {
-        this.materialsLoading = false
-      }
-    },
-    // ── FONCTION DE DÉTECTION TYPE D'APPARENCE (utilisée dans le simulateur Paramètres) ──
-    isHexColor(val) {
-      return typeof val === 'string' && /^#[0-9A-Fa-f]{3,6}$/.test(val)
-    },
-    // ── FONCTION DE DÉTECTION IMAGE ──────────────────────────────────────
-    // Retourne true si la valeur est une image (URL absolue, chemin relatif avec extension image,
-    // ou data URL base64 générée par FileReader). Retourne false pour les codes HEX et les chaînes vides.
-    isImageUrl(val) {
-      if (typeof val !== 'string' || !val.trim()) return false
-      return val.startsWith('http://') || val.startsWith('https://') ||
-        val.startsWith('data:image/') ||
-        /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(val)
     },
     fmtEur(v) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v ?? 0) },
     fmtDate(iso) {
