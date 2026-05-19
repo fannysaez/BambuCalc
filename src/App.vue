@@ -9,17 +9,19 @@
     <main class="page-wrap">
       <router-view />
     </main>
+    <CookieBanner />
   </div>
 </template>
 
 <script>
 import GlobalNav from './components/GlobalNav.vue'
+import CookieBanner from './components/CookieBanner.vue'
 import { supabase } from './lib/supabase'
 import { logout as authLogout } from './utils/auth'
 
 export default {
   name: 'App',
-  components: { GlobalNav },
+  components: { GlobalNav, CookieBanner },
   data() {
     return { isAuth: false, displayName: '', isAdminUser: false }
   },

@@ -1,10 +1,72 @@
+# ══════════════════════════════════════════════════════════════════════
+#  netlify.toml — Configuration de déploiement BambuCalc
+#  Plateforme : Netlify (SPA Vue 3 / Jamstack)
+#  Node       : 20 LTS
+# ══════════════════════════════════════════════════════════════════════
+
 [build]
   command   = "npm run build"
   publish   = "dist"
 
-# Indispensable pour Vue Router en mode history :
-# sans ça, tout rechargement hors "/" renvoie une 404 Netlify
+[build.environment]
+  # Node 20 LTS — requis par Vite 5 et les dépendances modernes
+  NODE_VERSION = "20"
+
+# ── Redirection SPA ──────────────────────────────────────────────────────────
+# Vue Router en mode history : chaque URL doit pointer vers index.html.
+# Sans cette règle, tout rechargement hors "/" renvoie une 404 Netlify.
 [[redirects]]
   from   = "/*"
   to     = "/index.html"
   status = 200
+
+# ── En-têtes de sécurité HTTP ────────────────────────────────────────────────
+# Appliqués sur toutes les ressources servies par Netlify.
+# Ces headers protègent contre les attaques XSS, clickjacking et sniffing.
+[[headers]]
+  for = "/*"
+
+  [headers.values]
+    # Interdit l'affichage du site dans un <iframe> (anti-clickjacking)
+    X-Frame-Options = "DENY"
+
+    # Empêche les navigateurs de "deviner" le type MIME (anti-MIME-sniffing)
+    X-Content-Type-Options = "nosniff"
+
+    # Limite les informations envoyées dans le header Referer aux requêtes HTTPS
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # Restreint l'accès aux API sensibles du navigateur (caméra, micro, géoloc)
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+    # Force HTTPS pour 1 an, inclut les sous-domaines
+    # ⚠️ À activer UNIQUEMENT quand le certificat SSL est validé et stable
+    # Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+    # Content Security Policy — À personnaliser selon les scripts tiers utilisés
+    # Stripe nécessite js.stripe.com et *.stripe.com dans les directives
+    # ⚠️ Décommenter et ajuster après avoir testé en mode "report-only" d'abord
+    # Content-Security-Policy = """
+    #   default-src 'self';
+    #   script-src 'self' https://js.stripe.com;
+    #   frame-src https://js.stripe.com;
+    #   connect-src 'self' https://*.supabase.co https://api.stripe.com;
+    #   style-src 'self' 'unsafe-inline';
+    #   img-src 'self' data: https:;
+    # """
+
+# ── Variables d'environnement de production ──────────────────────────────────
+# RÈGLE DE SÉCURITÉ :
+#   - Les clés PUBLIQUES (préfixe VITE_) peuvent figurer ici ou dans l'UI Netlify.
+#   - Les clés SECRÈTES ne doivent JAMAIS être dans ce fichier (il est commité).
+#   - Configurer les clés secrètes UNIQUEMENT dans :
+#     Dashboard Netlify → Site Settings → Environment Variables
+#
+# Variables à configurer dans l'UI Netlify (pas ici) :
+#   VITE_SUPABASE_ANON_KEY    → Clé publique Supabase (anon/public)
+#   VITE_STRIPE_PUBLIC_KEY    → Clé publique Stripe (pk_live_...)
+#
+[context.production.environment]
+  VITE_SUPABASE_URL = "https://upwzdctedpazranppskz.supabase.co"
+  # VITE_SUPABASE_ANON_KEY → UI Netlify uniquement
+  # VITE_STRIPE_PUBLIC_KEY → UI Netlify uniquement

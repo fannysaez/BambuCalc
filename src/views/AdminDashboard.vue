@@ -989,24 +989,10 @@
     </div>
 
     <!-- ── Onglet Catalogue ── -->
-    <div v-if="activeTab === 'catalogue'" class="panel-card">
-      <CatalogueSection
-        :materials="materials"
-        :materials-loading="materialsLoading"
-        :materials-saving="materialsSaving"
-        :mat-uploading="matUploading"
-        :current-page="matPage"
-        :per-page="matPerPage"
-        :known-brands="knownBrands"
-        @add-row="addMaterialRow(); matPage = totalMatPages"
-        @save="saveMaterials"
-        @delete="(mat, idx) => deleteMaterial(mat, idx)"
-        @upload="(mat, event) => onMatImageUpload(mat, event)"
-        @clear-image="clearMatImage"
-        @update:current-page="matPage = $event"
-      />
-
-    </div>
+    <CatalogueTab
+      v-if="activeTab === 'catalogue'"
+      @count-change="catalogueCount = $event"
+    />
 
     <!-- ── Onglet Paramètres ── -->
     <div v-if="activeTab === 'settings'" class="panel-card">
@@ -1276,6 +1262,7 @@ import { generateQuotePDF, generateQuotePDFDoc, pdfToBase64 } from '../utils/gen
 import { useCalculatorStore } from '../stores/calculator'
 import ToastMessage       from '../components/ToastMessage.vue'
 import CatalogueSection   from '../components/CatalogueSection.vue'
+import CatalogueTab       from '../components/admin/CatalogueTab.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
   Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
@@ -1288,7 +1275,7 @@ import autoTable from 'jspdf-autotable'
 export default {
   name: 'AdminDashboard',
   components: {
-    ToastMessage, CatalogueSection,
+    ToastMessage, CatalogueSection, CatalogueTab,
     ShieldCheck, Users, FileText, Wallet, TrendingUp,
     Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
     Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
@@ -1348,22 +1335,9 @@ export default {
       simWeight:       50,
       simPrintHours:   1,
       simPrintMinutes: 30,
-      // ── Catalogue matières ────────────────────────────────────────────────
+      // ── Catalogue matières (materials chargé pour le simulateur des Paramètres) ─
       materials:        [],
       materialsLoading: false,
-      materialsSaving:  false,
-      knownBrands: ['Bambu Lab', 'Eryone', 'Sunlu'],
-      TYPE_DEFAULTS: {
-        'PLA':        { cost_per_kg: 20, default_waste_percentage: 10 },
-        'Matt':       { cost_per_kg: 20, default_waste_percentage: 10 },
-        'PLA+':       { cost_per_kg: 22, default_waste_percentage: 10 },
-        'PLA+ 2.0':   { cost_per_kg: 22, default_waste_percentage: 10 },
-        'PLA HS':     { cost_per_kg: 24, default_waste_percentage: 10 },
-        'PLA HS 2.0': { cost_per_kg: 24, default_waste_percentage: 10 },
-        'PLA Galaxy': { cost_per_kg: 25, default_waste_percentage: 10 },
-        'PLA Silk':   { cost_per_kg: 25, default_waste_percentage: 10 },
-        'PETG':       { cost_per_kg: 22, default_waste_percentage: 12 },
-      },
       fallbackMaterials: [
         { id: null, _local: true, name: 'Sunlu PLA',          brand: 'Sunlu',  type: 'PLA',      cost_per_kg: 20, default_waste_percentage: 10, color_or_image: '#3B82F6', image_url: null, stock_status: 'En Stock' },
         { id: null, _local: true, name: 'Eryone PLA+',        brand: 'Eryone', type: 'PLA+',     cost_per_kg: 22, default_waste_percentage: 10, color_or_image: '#EF4444', image_url: null, stock_status: 'En Stock' },
@@ -1372,21 +1346,14 @@ export default {
         { id: null, _local: true, name: 'Eryone PLA Galaxy',  brand: 'Eryone', type: 'PLA Galaxy', cost_per_kg: 25, default_waste_percentage: 10, color_or_image: '#8B5CF6', image_url: null, stock_status: 'En Stock' },
         { id: null, _local: true, name: 'Sunlu PETG',         brand: 'Sunlu',  type: 'PETG',     cost_per_kg: 22, default_waste_percentage: 12, color_or_image: '#6B7280', image_url: null, stock_status: 'En Stock' },
       ],
-      // ── Simulateur — sélecteurs étendus ───────────────────────────────────
+      // ── Simulateur — sélecteurs ────────────────────────────────────────────
       simMaterialId:  null,
       simProjectType: 'standard',
       simStep:        1,
-      // ── Images préréglées Catalogue ───────────────────────────────────────
-      presetImages: [
-        { path: '/bambuLab Filament.webp', label: 'Bobine filament' },
-      ],
-      // ── Pagination & upload état Catalogue ────────────────────────────────
-      matPage:      1,
-      matPerPage:   4,
-      matUploading: false,
       // ── UI état ──────────────────────────────────────────────────────────
       dossierDropdownOpen: false,
       burgerOpen: false,
+      catalogueCount: 0,
       settingsPage:        1,
       managePage:          1,
       managePaginePage:    1,
@@ -1400,7 +1367,7 @@ export default {
         { id: 'emails',    label: 'Emails',        icon: 'Mail' },
         { id: 'archives',  label: 'Archives',      icon: 'Archive',          count: this.filteredArchives.length },
         { id: 'stats',     label: 'Statistiques',  icon: 'BarChart2' },
-        { id: 'catalogue', label: 'Catalogue',     icon: 'Package',          count: this.materials.length },
+        { id: 'catalogue', label: 'Catalogue',     icon: 'Package',          count: this.catalogueCount || this.materials.length },
         { id: 'settings',  label: 'Paramètres',    icon: 'SlidersHorizontal' },
       ]
     },
@@ -1574,13 +1541,6 @@ export default {
     },
     totalManagePages() {
       return Math.max(1, Math.ceil(this.filteredQuotes.length / this.quotesPerPage))
-    },
-    paginatedMaterials() {
-      const start = (this.matPage - 1) * this.matPerPage
-      return this.materials.slice(start, start + this.matPerPage)
-    },
-    totalMatPages() {
-      return Math.max(1, Math.ceil(this.materials.length / this.matPerPage))
     },
   },
   watch: {
@@ -2177,225 +2137,7 @@ export default {
         this.materialsLoading = false
       }
     },
-    async saveMaterials() {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const session = sessionData?.session
-      if (!session) {
-        this.$refs.toast?.show('Session expirée. Rechargez la page et reconnectez-vous.', 'error', 5000)
-        return
-      }
-
-      this.materialsSaving = true
-      try {
-        const now = new Date().toISOString()
-        const matPayload = (m, withId) => ({
-          ...(withId ? { id: m.id } : {}),
-          name:                     m.name || '',
-          brand:                    m.brand || '',
-          type:                     m.type || 'PLA',
-          cost_per_kg:              parseFloat(m.cost_per_kg) || 0,
-          default_waste_percentage: parseFloat(m.default_waste_percentage) || 5,
-          color_or_image:           this.isHexColor(m.color_or_image) ? m.color_or_image : '#2e9cab',
-          image_url:                m.image_url || null,
-          stock_status:             m.stock_status || 'En Stock',
-          poids_depart:             parseInt(m.poids_depart) || 1000,
-          poids_restant:            m.poids_restant !== null && m.poids_restant !== undefined
-                                      ? parseInt(m.poids_restant)
-                                      : parseInt(m.poids_depart) || 1000,
-          quantite:                 parseInt(m.quantite) || 1,
-          updated_at:               now,
-        })
-        const toUpsert = this.materials.filter(m => m.id && !m._new).map(m => matPayload(m, true))
-        const toInsert = this.materials.filter(m => !m.id || m._new).map(m => matPayload(m, false))
-        if (toUpsert.length) {
-          const { error } = await supabase.from('bambu_materials').upsert(toUpsert, { onConflict: 'id' })
-          if (error) throw error
-        }
-        if (toInsert.length) {
-          const { data: inserted, error } = await supabase.from('bambu_materials').insert(toInsert).select()
-          if (error) throw error
-          // Mise à jour des IDs réels sans rechargement complet
-          if (inserted?.length) {
-            let i = 0
-            this.materials.forEach(m => {
-              if ((!m.id || m._new) && inserted[i]) {
-                m.id   = inserted[i].id
-                m._new = false
-                i++
-              }
-            })
-          }
-        }
-        this.$refs.toast?.show('Catalogue matières sauvegardé.', 'success', 2500)
-      } catch (err) {
-        this.$refs.toast?.show(`Erreur : ${err.message}`, 'error')
-      } finally {
-        this.materialsSaving = false
-      }
-    },
-    addMaterialRow() {
-      this.materials.push({
-        id: null, _new: true,
-        name: '', brand: 'Eryone', type: 'PLA',
-        cost_per_kg: 20, default_waste_percentage: 10,
-        color_or_image: '#2e9cab', image_url: null,
-        stock_status: 'En Stock',
-        poids_depart: 1000, poids_restant: null,
-        quantite: 1,
-      })
-    },
-    async deleteMaterial(mat, idx) {
-      // Optimistic : retire immédiatement de l'UI
-      this.materials.splice(idx, 1)
-      if (this.simMaterialId === mat.id) this.simMaterialId = null
-      // Ajuste la page si elle devient vide
-      if (this.matPage > this.totalMatPages) this.matPage = this.totalMatPages
-
-      if (mat.id && !mat._new) {
-        const { error } = await supabase.from('bambu_materials').delete().eq('id', mat.id)
-        if (error) {
-          // Rollback : réinsère à sa position d'origine
-          this.materials.splice(idx, 0, mat)
-          this.$refs.toast?.show(`Erreur suppression : ${error.message}`, 'error')
-        }
-      }
-    },
-    // ── Catalogue : type, marque, nom auto ───────────────────────────────
-    onTypeChange(mat) {
-      const defaults = this.TYPE_DEFAULTS[mat.type]
-      if (defaults) {
-        mat.cost_per_kg              = defaults.cost_per_kg
-        mat.default_waste_percentage = defaults.default_waste_percentage
-      }
-      this.autoFillName(mat)
-    },
-    onBrandChange(mat, value) {
-      if (value !== 'Autre') {
-        mat.brand = value
-        this.autoFillName(mat)
-      }
-      // Si "Autre" : on garde mat.brand tel quel, l'input texte apparaît
-    },
-    autoFillName(mat) {
-      const generated = [mat.brand, mat.type].filter(Boolean).join(' ')
-      if (!mat.name) mat.name = generated
-    },
-    stockLedClass(status) {
-      if (status === 'Stock Faible')        return 'mat-stock-led--low'
-      if (status === 'Rupture')             return 'mat-stock-led--out'
-      if (status === 'Réapprovisionnement') return 'mat-stock-led--reorder'
-      return 'mat-stock-led--ok'
-    },
-    // ── Catalogue : gestion upload image et bascule de mode ──────────────
-    triggerImageUpload(idx) {
-      const ref = this.$refs['imgUpload_' + idx]
-      if (ref) ref.click()
-    },
-    async onMatImageUpload(mat, event) {
-      const file = event.target.files?.[0]
-      if (!file) return
-      event.target.value = ''
-
-      // Vérification de session — un 403 serait sinon silencieux
-      const { data: sessionData } = await supabase.auth.getSession()
-      const session = sessionData?.session
-      if (!session) {
-        this.$refs.toast?.show('Session expirée. Rechargez la page et reconnectez-vous.', 'error', 5000)
-        return
-      }
-
-      this.matUploading = true
-      try {
-        // 0. Nouveau matériau sans ID → auto-insert en DB avant l'upload
-        //    pour éviter que le fichier Storage devienne orphelin
-        if (!mat.id || mat._new) {
-          const { data: inserted, error: insertErr } = await supabase
-            .from('bambu_materials')
-            .insert({
-              name:                     mat.name  || 'Nouveau filament',
-              brand:                    mat.brand || '',
-              type:                     mat.type  || 'PLA',
-              cost_per_kg:              parseFloat(mat.cost_per_kg)             || 20,
-              default_waste_percentage: parseFloat(mat.default_waste_percentage) || 10,
-              color_or_image:           this.isHexColor(mat.color_or_image) ? mat.color_or_image : '#2e9cab',
-              image_url:                null,
-              stock_status:             mat.stock_status || 'En Stock',
-              updated_at:               new Date().toISOString(),
-            })
-            .select()
-            .single()
-          if (insertErr) {
-            this.$refs.toast?.show(
-              `Erreur auto-sauvegarde avant upload : ${insertErr.message}`,
-              'error', 5000
-            )
-            return
-          }
-          mat.id   = inserted.id
-          mat._new = false
-        }
-
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60)
-        const fileName = `${Date.now()}_${safeName}`
-
-        // 1. Upload vers Supabase Storage bucket "filaments"
-        const { error: uploadError } = await supabase.storage
-          .from('filaments')
-          .upload(fileName, file, { upsert: true, contentType: file.type || 'image/webp' })
-        if (uploadError) throw uploadError
-
-        // 2. Récupération de l'URL publique permanente
-        const { data: urlData } = supabase.storage.from('filaments').getPublicUrl(fileName)
-        const publicUrl = urlData.publicUrl
-
-        // 3. UPDATE immédiat en DB — le matériau a toujours un ID ici
-        const { error: dbErr } = await supabase
-          .from('bambu_materials')
-          .update({ image_url: publicUrl, updated_at: new Date().toISOString() })
-          .eq('id', mat.id)
-        if (dbErr) {
-          console.error('[onMatImageUpload] Erreur DB update :', dbErr.message)
-          this.$refs.toast?.show(
-            `Photo uploadée mais sauvegarde DB échouée : ${dbErr.message}`,
-            'error', 6000
-          )
-          mat.image_url = publicUrl
-          return
-        }
-
-        // 4. Mise à jour réactive locale
-        mat.image_url = publicUrl
-        this.$refs.toast?.show('Photo uploadée et sauvegardée.', 'success', 2500)
-      } catch (err) {
-        const status = err?.statusCode ?? err?.status ?? 0
-        console.error('[onMatImageUpload] Erreur Storage :', status, err?.message, err)
-        if (status === 403 || status === 401) {
-          this.$refs.toast?.show(
-            `Accès refusé (${status}). Relancez le script SQL des politiques Storage dans Supabase.`,
-            'error', 7000
-          )
-        } else {
-          this.$refs.toast?.show(`Erreur upload : ${err.message}`, 'error', 5000)
-        }
-      } finally {
-        this.matUploading = false
-      }
-    },
-    async clearMatImage(mat) {
-      mat.image_url = null
-      if (mat.id && !mat._new) {
-        const { error } = await supabase
-          .from('bambu_materials')
-          .update({ image_url: null, updated_at: new Date().toISOString() })
-          .eq('id', mat.id)
-        if (error) console.error('[clearMatImage]', error.message)
-      }
-      this.$refs.toast?.show('Photo supprimée.', 'success', 1800)
-    },
-    openImageMode(mat) {
-      mat.image_url = this.presetImages[0]?.path ?? null
-    },
-    // ── FONCTION DE DÉTECTION TYPE D'APPARENCE ────────────────────────────
+    // ── FONCTION DE DÉTECTION TYPE D'APPARENCE (utilisée dans le simulateur Paramètres) ──
     isHexColor(val) {
       return typeof val === 'string' && /^#[0-9A-Fa-f]{3,6}$/.test(val)
     },

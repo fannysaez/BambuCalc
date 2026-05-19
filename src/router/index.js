@@ -22,6 +22,12 @@ const routes = [
   { path: '/reset-password', name: 'reset-password', component: ResetPassword },
   { path: '/privacy', name: 'privacy', component: PrivacyPolicy },
   { path: '/profile', name: 'profile', component: UserProfile, meta: { requiresAuth: true } },
+  {
+    path: '/pay/:quoteId',
+    name: 'payment',
+    component: () => import('../views/PaymentView.vue'),
+    meta: { requiresAuth: true },
+  },
   { path: '/guest', redirect: '/calculator/1' },
   { path: '/guest/calculator/:step', redirect: to => `/calculator/${to.params.step}` },
   { path: '/guest/dashboard', redirect: '/dashboard' },

@@ -135,6 +135,14 @@
                 <td><span :class="['status-badge', 'status-' + (q.status || 'pending')]">{{ statusLabel(q.status) }}</span></td>
                 <td class="td-date">{{ fmtDate(q.created_at) }}</td>
                 <td class="td-actions">
+                  <router-link
+                    v-if="q.payment_status !== 'paid'"
+                    :to="{ name: 'payment', params: { quoteId: q.id } }"
+                    class="btn-pay-quote"
+                    title="Payer ce devis"
+                  >
+                    <CreditCard class="del-icon" />
+                  </router-link>
                   <button class="btn-pdf" @click="downloadPDF(q)" title="Télécharger le devis PDF">
                     <Download class="del-icon" />
                   </button>
@@ -162,6 +170,14 @@
               <span class="dqcard-total">{{ fmtEur(q.total_cost) }}</span>
             </div>
             <div class="dqcard-foot">
+              <router-link
+                v-if="q.payment_status !== 'paid'"
+                :to="{ name: 'payment', params: { quoteId: q.id } }"
+                class="btn-pay-quote dqcard-btn"
+                title="Payer ce devis"
+              >
+                <CreditCard class="del-icon" />
+              </router-link>
               <button class="btn-pdf dqcard-btn" @click="downloadPDF(q)" title="Télécharger PDF">
                 <Download class="del-icon" />
               </button>
@@ -208,11 +224,11 @@ import { supabase } from '../lib/supabase'
 import { getQuotes } from '../utils/auth'
 import { generateQuotePDF } from '../utils/generateQuotePDF'
 import ToastMessage from '../components/ToastMessage.vue'
-import { User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download, UserX } from 'lucide-vue-next'
+import { User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download, UserX, CreditCard } from 'lucide-vue-next'
 
 export default {
   name: 'Dashboard',
-  components: { ToastMessage, User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download, UserX },
+  components: { ToastMessage, User, Plus, FileText, TrendingUp, Package, Wallet, Trash2, Download, UserX, CreditCard },
   data() {
     return {
       displayName: '',
@@ -719,6 +735,23 @@ export default {
 .btn-del:hover { background: #fff5f5; color: #e53e3e; }
 .del-icon { width: 0.9rem; height: 0.9rem; }
 .td-actions { text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 0.2rem; }
+
+/* ── Bouton Payer ── */
+.btn-pay-quote {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9f7aea;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-decoration: none;
+}
+.btn-pay-quote:hover { background: #faf5ff; color: #7c3aed; }
 
 /* ── Modal suppression ── */
 .modal-overlay {

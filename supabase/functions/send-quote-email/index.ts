@@ -96,10 +96,13 @@ async function sendViaResend(payload: object, label: string): Promise<void> {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
+    return new Response(null, {
+      status: 204,
       headers: {
-        'Access-Control-Allow-Origin':  '*',
+        'Access-Control-Allow-Origin':  'https://bambucalc.fr',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Max-Age':       '86400',
       },
     })
   }
