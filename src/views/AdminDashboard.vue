@@ -298,262 +298,209 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getAllQuotesAdmin, getAllProfilesAdmin, adminDeleteQuote, adminDeleteUser } from '../utils/auth'
 import { supabase } from '../lib/supabase'
-import { generateQuotePDF, generateQuotePDFDoc, pdfToBase64 } from '../utils/generateQuotePDF'
+import { generateQuotePDFDoc, pdfToBase64 } from '../utils/generateQuotePDF'
 import { useCalculatorStore } from '../stores/calculator'
-import ToastMessage       from '../components/ToastMessage.vue'
-import CatalogueSection   from '../components/CatalogueSection.vue'
-import CatalogueTab       from '../components/admin/CatalogueTab.vue'
-import SettingsTab        from '../components/admin/SettingsTab.vue'
-import GestionDevisTab    from '../components/admin/GestionDevisTab.vue'
-import EmailsTab          from '../components/admin/EmailsTab.vue'
-import ArchivesTab        from '../components/admin/ArchivesTab.vue'
-import StatsTab           from '../components/admin/StatsTab.vue'
-import ClientsTab         from '../components/admin/ClientsTab.vue'
-import QuotesTab          from '../components/admin/QuotesTab.vue'
+import ToastMessage    from '../components/ToastMessage.vue'
+import CatalogueTab    from '../components/admin/CatalogueTab.vue'
+import SettingsTab     from '../components/admin/SettingsTab.vue'
+import GestionDevisTab from '../components/admin/GestionDevisTab.vue'
+import EmailsTab       from '../components/admin/EmailsTab.vue'
+import ArchivesTab     from '../components/admin/ArchivesTab.vue'
+import StatsTab        from '../components/admin/StatsTab.vue'
+import ClientsTab      from '../components/admin/ClientsTab.vue'
+import QuotesTab       from '../components/admin/QuotesTab.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
-  Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
-  BarChart2, SlidersHorizontal, Package, ChevronDown,
-  Image as ImageIcon, Upload, Palette, Save,
+  Send, Archive, BarChart2, SlidersHorizontal,
+  Package, ChevronDown, Mail,
 } from 'lucide-vue-next'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
-export default {
-  name: 'AdminDashboard',
-  components: {
-    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab, EmailsTab, ArchivesTab, StatsTab, ClientsTab, QuotesTab,
-    ShieldCheck, Users, FileText, Wallet, TrendingUp,
-    Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
-    Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
-    ImageIcon, Upload, Palette, Save,
-  },
-  setup() {
-    return { calculatorStore: useCalculatorStore() }
-  },
-  data() {
-    const saved = JSON.parse(localStorage.getItem('bambu_email_settings') || '{}')
-    return {
-      displayName:   '',
-      currentUserId: null,
-      profiles: [],
-      quotes: [],
-      loading: true,
-      activeTab: 'clients',
-      quotesFilterUserId: '',
-      deleteTarget: null,
-      deleting: false,
-      senderName:       saved.senderName       || 'BambuCalc',
-      emailSubject:     saved.emailSubject     || 'Votre devis BambuCalc — [numéro]',
-      emailIntroClient: saved.emailIntroClient || '',
-      attachPdfAuto:    saved.attachPdfAuto    ?? true,
-      sendTarget: null,
-      isSending: false,
-      // ── UI état ──────────────────────────────────────────────────────────
-      dossierDropdownOpen: false,
-      burgerOpen: false,
-      catalogueCount: 0,
-      manageCount:    0,
-      archiveCount:   0,
-    }
-  },
-  computed: {
-    tabs() {
-      return [
-        { id: 'manage',    label: 'Gestion Devis', icon: 'Send',             count: this.manageCount || 0 },
-        { id: 'emails',    label: 'Emails',        icon: 'Mail' },
-        { id: 'archives',  label: 'Archives',      icon: 'Archive',          count: this.archiveCount || 0 },
-        { id: 'stats',     label: 'Statistiques',  icon: 'BarChart2' },
-        { id: 'catalogue', label: 'Catalogue',     icon: 'Package',          count: this.catalogueCount || 0 },
-        { id: 'settings',  label: 'Paramètres',    icon: 'SlidersHorizontal' },
-      ]
-    },
-    currentTabIcon() {
-      if (this.activeTab === 'clients') return 'Users'
-      if (this.activeTab === 'quotes')  return 'FileText'
-      const t = this.tabs.find(t => t.id === this.activeTab)
-      return t ? t.icon : 'Menu'
-    },
-    currentTabLabel() {
-      if (this.activeTab === 'clients') return 'Liste des clients'
-      if (this.activeTab === 'quotes')  return 'Tous les devis'
-      const t = this.tabs.find(t => t.id === this.activeTab)
-      return t ? t.label : ''
-    },
-    totalRevenue() { return this.quotes.reduce((a, q) => a + (q.total_cost || 0), 0) },
-    avgCost()      { return this.quotes.length ? this.totalRevenue / this.quotes.length : 0 },
-    quoteInfoByUser() {
-      const map = {}
-      for (const q of this.quotes) {
-        if (!map[q.user_id] && (q.client_name || q.client_email))
-          map[q.user_id] = { name: q.client_name || '', email: q.client_email || '' }
-      }
-      return map
-    },
-    clientCount() {
-      return this.profiles.filter(p => {
-        if (p.id === this.currentUserId) return false
-        const isAnon = !p.full_name && !p.email
-        return isAnon ? this.quotes.some(q => q.user_id === p.id) : true
-      }).length
-    },
-  },
-  watch: {},
-  async created() {
-    const { data, error } = await supabase.auth.getUser()
-    if (error || !data.user) {
-      this.$router.replace({ name: 'login' })
-      return
-    }
-    this.currentUserId = data.user.id
-    const meta = data.user.user_metadata || {}
-    const full = meta.full_name || meta.name || ''
-    this.displayName = full.split(' ')[0] || data.user.email?.split('@')[0] || ''
-    await this.loadData()
-  },
-  mounted() {
-    this._lockScroll = () => {
-      document.body.style.overflowY = window.innerWidth > 1023 ? 'hidden' : ''
-    }
-    this._lockScroll()
-    window.addEventListener('resize', this._lockScroll)
-  },
-  beforeUnmount() {
-    document.body.style.overflowY = ''
-    if (this._lockScroll) window.removeEventListener('resize', this._lockScroll)
-  },
-  methods: {
-    async loadData() {
-      this.loading = true
-      try {
-        const [quotes, profiles] = await Promise.all([getAllQuotesAdmin(), getAllProfilesAdmin()])
-        this.quotes   = quotes
-        this.profiles = profiles
-      } catch {
-        this.$refs.toast?.show('Impossible de charger les données.', 'error')
-      } finally {
-        this.loading = false
-      }
-    },
-    quoteCountFor(userId) {
-      return this.quotes.filter(q => q.user_id === userId).length
-    },
-    onGoToQuotes(userId) {
-      this.quotesFilterUserId = userId
-      this.activeTab = 'quotes'
-    },
-    confirmDeleteQuote(q) { this.deleteTarget = { type: 'quote', data: q } },
-    confirmDeleteUser(p)  { this.deleteTarget = { type: 'user',  data: p } },
-    async doDelete() {
-      this.deleting = true
-      try {
-        if (this.deleteTarget.type === 'quote') {
-          await adminDeleteQuote(this.deleteTarget.data.id)
-          this.quotes = this.quotes.filter(q => q.id !== this.deleteTarget.data.id)
-          this.$refs.toast.show('Devis supprimé.', 'success', 2500)
-        } else {
-          await adminDeleteUser(this.deleteTarget.data.id)
-          const uid = this.deleteTarget.data.id
-          this.profiles = this.profiles.filter(p => p.id !== uid)
-          this.quotes   = this.quotes.filter(q => q.user_id !== uid)
-          this.$refs.toast.show('Client supprimé.', 'success', 2500)
-        }
-        this.deleteTarget = null
-      } catch {
-        this.$refs.toast.show('Erreur lors de la suppression.', 'error')
-      } finally {
-        this.deleting = false
-      }
-    },
-    startNewQuote() {
-      this.calculatorStore.resetForNewQuote()
-      this.$router.push('/calculator/1')
-    },
-    generateQuotePDF,
-    onEmailSettingsChanged(s) {
-      this.senderName       = s.senderName
-      this.emailSubject     = s.emailSubject
-      this.emailIntroClient = s.emailIntroClient
-      this.attachPdfAuto    = s.attachPdfAuto
-    },
-    resolvedSubject(quote) {
-      const civility  = quote.client_civility ? quote.client_civility + ' ' : ''
-      const lastName  = quote.client_last_name || ''
-      const firstName = quote.client_first_name || quote.client_name?.split(' ')[0] || 'client'
-      return (this.emailSubject || 'Votre devis BambuCalc — [numéro]')
-        .replace(/\[numéro\]/gi, quote.quote_number || '')
-        .replace(/\[senderName\]/gi, this.senderName || 'BambuCalc')
-        .replace(/\[projet\]/gi, quote.project_name || '')
-        .replace(/\[client\]/gi, firstName)
-        .replace(/\[client_nom\]/gi, civility + (lastName || firstName))
-    },
-    resolvedIntro(quote) {
-      const civility   = quote.client_civility ? quote.client_civility + ' ' : ''
-      const lastName   = quote.client_last_name || ''
-      const firstName  = quote.client_first_name || quote.client_name?.split(' ')[0] || 'client'
-      const fullPolite = civility + (lastName || firstName)
-      return (this.emailIntroClient || '')
-        .replace(/\[client\]/gi, firstName)
-        .replace(/\[client_nom\]/gi, fullPolite)
-        .replace(/\[civilité\]/gi, civility.trim())
-        .replace(/\[numéro\]/gi, quote.quote_number || '')
-        .replace(/\[projet\]/gi, quote.project_name || '')
-        .replace(/\[total\]/gi, this.fmtEur(quote.total_cost))
-    },
-    async sendQuote() {
-      if (!this.sendTarget) return
-      this.isSending = true
-      try {
-        // ── Génération PDF Base64 (si toggle activé) ──────────────────────────
-        let pdfBase64  = null
-        let pdfFilename = null
-        if (this.attachPdfAuto) {
-          try {
-            const doc = generateQuotePDFDoc(this.sendTarget)
-            pdfBase64   = pdfToBase64(doc)
-            pdfFilename = `devis-${this.sendTarget.quote_number || 'bambucalc'}.pdf`
-          } catch (pdfErr) {
-            console.warn('[sendQuote] PDF generation failed, sending without attachment:', pdfErr)
-          }
-        }
+const router          = useRouter()
+const calculatorStore = useCalculatorStore()
+const toast           = ref(null)
 
-        // ── Appel edge function ───────────────────────────────────────────────
-        const { error } = await supabase.functions.invoke('send-quote-email', {
-          body: {
-            quote:      this.sendTarget,
-            pdfBase64,
-            filename:   pdfFilename,
-          },
-        })
-        if (error) throw new Error(error.message || JSON.stringify(error))
+const saved = JSON.parse(localStorage.getItem('bambu_email_settings') || '{}')
+const displayName         = ref('')
+const currentUserId       = ref(null)
+const profiles            = ref([])
+const quotes              = ref([])
+const loading             = ref(true)
+const activeTab           = ref('clients')
+const quotesFilterUserId  = ref('')
+const deleteTarget        = ref(null)
+const deleting            = ref(false)
+const senderName          = ref(saved.senderName       || 'BambuCalc')
+const emailSubject        = ref(saved.emailSubject     || 'Votre devis BambuCalc — [numéro]')
+const emailIntroClient    = ref(saved.emailIntroClient || '')
+const attachPdfAuto       = ref(saved.attachPdfAuto    ?? true)
+const sendTarget          = ref(null)
+const isSending           = ref(false)
+const dossierDropdownOpen = ref(false)
+const burgerOpen          = ref(false)
+const catalogueCount      = ref(0)
+const manageCount         = ref(0)
+const archiveCount        = ref(0)
 
-        // ── Mise à jour statut ────────────────────────────────────────────────
-        const { error: updateErr } = await supabase
-          .from('quotes').update({ status: 'sent' }).eq('id', this.sendTarget.id)
-        if (!updateErr) {
-          const idx = this.quotes.findIndex(q => q.id === this.sendTarget.id)
-          if (idx !== -1) this.quotes[idx].status = 'sent'
-        }
+const tabs = computed(() => [
+  { id: 'manage',    label: 'Gestion Devis', icon: Send,              count: manageCount.value || 0 },
+  { id: 'emails',    label: 'Emails',        icon: Mail },
+  { id: 'archives',  label: 'Archives',      icon: Archive,           count: archiveCount.value || 0 },
+  { id: 'stats',     label: 'Statistiques',  icon: BarChart2 },
+  { id: 'catalogue', label: 'Catalogue',     icon: Package,           count: catalogueCount.value || 0 },
+  { id: 'settings',  label: 'Paramètres',    icon: SlidersHorizontal },
+])
+const currentTabIcon = computed(() => {
+  if (activeTab.value === 'clients') return Users
+  if (activeTab.value === 'quotes')  return FileText
+  const t = tabs.value.find(t => t.id === activeTab.value)
+  return t ? t.icon : ChevronDown
+})
+const currentTabLabel = computed(() => {
+  if (activeTab.value === 'clients') return 'Liste des clients'
+  if (activeTab.value === 'quotes')  return 'Tous les devis'
+  const t = tabs.value.find(t => t.id === activeTab.value)
+  return t ? t.label : ''
+})
+const totalRevenue = computed(() => quotes.value.reduce((a, q) => a + (q.total_cost || 0), 0))
+const avgCost      = computed(() => quotes.value.length ? totalRevenue.value / quotes.value.length : 0)
+const quoteInfoByUser = computed(() => {
+  const map = {}
+  for (const q of quotes.value) {
+    if (!map[q.user_id] && (q.client_name || q.client_email))
+      map[q.user_id] = { name: q.client_name || '', email: q.client_email || '' }
+  }
+  return map
+})
+const clientCount = computed(() =>
+  profiles.value.filter(p => {
+    if (p.id === currentUserId.value) return false
+    const isAnon = !p.full_name && !p.email
+    return isAnon ? quotes.value.some(q => q.user_id === p.id) : true
+  }).length
+)
 
-        this.$refs.toast?.show(`Email envoyé à ${this.sendTarget.client_email} !`, 'success')
-        this.sendTarget = null
-      } catch (err) {
-        console.error('[sendQuote]', err)
-        this.$refs.toast?.show(`Erreur d'envoi : ${err.message || 'edge function indisponible'}`, 'error')
-      } finally {
-        this.isSending = false
-      }
-    },
-    fmtEur(v) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v ?? 0) },
-    fmtDate(iso) {
-      if (!iso) return '—'
-      return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso))
-    },
-  },
+;(async () => {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data.user) { router.replace({ name: 'login' }); return }
+  currentUserId.value = data.user.id
+  const meta = data.user.user_metadata || {}
+  const full = meta.full_name || meta.name || ''
+  displayName.value = full.split(' ')[0] || data.user.email?.split('@')[0] || ''
+  await loadData()
+})()
+
+let lockScrollFn = null
+onMounted(() => {
+  lockScrollFn = () => { document.body.style.overflowY = window.innerWidth > 1023 ? 'hidden' : '' }
+  lockScrollFn()
+  window.addEventListener('resize', lockScrollFn)
+})
+onUnmounted(() => {
+  document.body.style.overflowY = ''
+  if (lockScrollFn) window.removeEventListener('resize', lockScrollFn)
+})
+
+async function loadData() {
+  loading.value = true
+  try {
+    const [q, p] = await Promise.all([getAllQuotesAdmin(), getAllProfilesAdmin()])
+    quotes.value   = q
+    profiles.value = p
+  } catch {
+    toast.value?.show('Impossible de charger les données.', 'error')
+  } finally {
+    loading.value = false
+  }
 }
+function quoteCountFor(userId) { return quotes.value.filter(q => q.user_id === userId).length }
+function onGoToQuotes(userId)  { quotesFilterUserId.value = userId; activeTab.value = 'quotes' }
+function confirmDeleteQuote(q) { deleteTarget.value = { type: 'quote', data: q } }
+function confirmDeleteUser(p)  { deleteTarget.value = { type: 'user',  data: p } }
+async function doDelete() {
+  deleting.value = true
+  try {
+    if (deleteTarget.value.type === 'quote') {
+      await adminDeleteQuote(deleteTarget.value.data.id)
+      quotes.value = quotes.value.filter(q => q.id !== deleteTarget.value.data.id)
+      toast.value?.show('Devis supprimé.', 'success', 2500)
+    } else {
+      await adminDeleteUser(deleteTarget.value.data.id)
+      const uid = deleteTarget.value.data.id
+      profiles.value = profiles.value.filter(p => p.id !== uid)
+      quotes.value   = quotes.value.filter(q => q.user_id !== uid)
+      toast.value?.show('Client supprimé.', 'success', 2500)
+    }
+    deleteTarget.value = null
+  } catch {
+    toast.value?.show('Erreur lors de la suppression.', 'error')
+  } finally {
+    deleting.value = false
+  }
+}
+function startNewQuote() { calculatorStore.resetForNewQuote(); router.push('/calculator/1') }
+function onEmailSettingsChanged(s) {
+  senderName.value = s.senderName; emailSubject.value = s.emailSubject
+  emailIntroClient.value = s.emailIntroClient; attachPdfAuto.value = s.attachPdfAuto
+}
+function resolvedSubject(quote) {
+  const civility  = quote.client_civility ? quote.client_civility + ' ' : ''
+  const lastName  = quote.client_last_name || ''
+  const firstName = quote.client_first_name || quote.client_name?.split(' ')[0] || 'client'
+  return (emailSubject.value || 'Votre devis BambuCalc — [numéro]')
+    .replace(/\[numéro\]/gi, quote.quote_number || '')
+    .replace(/\[senderName\]/gi, senderName.value || 'BambuCalc')
+    .replace(/\[projet\]/gi, quote.project_name || '')
+    .replace(/\[client\]/gi, firstName)
+    .replace(/\[client_nom\]/gi, civility + (lastName || firstName))
+}
+function resolvedIntro(quote) {
+  const civility   = quote.client_civility ? quote.client_civility + ' ' : ''
+  const lastName   = quote.client_last_name || ''
+  const firstName  = quote.client_first_name || quote.client_name?.split(' ')[0] || 'client'
+  const fullPolite = civility + (lastName || firstName)
+  return (emailIntroClient.value || '')
+    .replace(/\[client\]/gi, firstName)
+    .replace(/\[client_nom\]/gi, fullPolite)
+    .replace(/\[civilité\]/gi, civility.trim())
+    .replace(/\[numéro\]/gi, quote.quote_number || '')
+    .replace(/\[projet\]/gi, quote.project_name || '')
+    .replace(/\[total\]/gi, fmtEur(quote.total_cost))
+}
+async function sendQuote() {
+  if (!sendTarget.value) return
+  isSending.value = true
+  try {
+    let pdfBase64 = null, pdfFilename = null
+    if (attachPdfAuto.value) {
+      try {
+        const doc = generateQuotePDFDoc(sendTarget.value)
+        pdfBase64   = pdfToBase64(doc)
+        pdfFilename = `devis-${sendTarget.value.quote_number || 'bambucalc'}.pdf`
+      } catch (pdfErr) { console.warn('[sendQuote] PDF failed:', pdfErr) }
+    }
+    const { error } = await supabase.functions.invoke('send-quote-email', {
+      body: { quote: sendTarget.value, pdfBase64, filename: pdfFilename },
+    })
+    if (error) throw new Error(error.message || JSON.stringify(error))
+    const { error: updateErr } = await supabase.from('quotes').update({ status: 'sent' }).eq('id', sendTarget.value.id)
+    if (!updateErr) {
+      const idx = quotes.value.findIndex(q => q.id === sendTarget.value.id)
+      if (idx !== -1) quotes.value[idx].status = 'sent'
+    }
+    toast.value?.show(`Email envoyé à ${sendTarget.value.client_email} !`, 'success')
+    sendTarget.value = null
+  } catch (err) {
+    toast.value?.show(`Erreur d'envoi : ${err.message || 'edge function indisponible'}`, 'error')
+  } finally {
+    isSending.value = false
+  }
+}
+function fmtEur(v) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v ?? 0) }
 </script>
 
 <style scoped>
