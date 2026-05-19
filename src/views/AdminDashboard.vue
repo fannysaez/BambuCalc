@@ -381,150 +381,20 @@
 
 
     <!-- ── Onglet Archives ── -->
-    <div v-if="activeTab === 'archives'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">Archives</h2>
-        <div class="panel-actions">
-          <select class="filter-select" v-model.number="archiveYear">
-            <option v-for="y in archiveYears" :key="y" :value="y">{{ y }}</option>
-          </select>
-        </div>
-      </div>
-      <div v-if="loading" class="empty-state"><div class="spinner" /><p>Chargement…</p></div>
-      <div v-else-if="filteredArchives.length === 0" class="empty-state">
-        <Archive class="empty-icon" />
-        <p class="empty-title">Aucun devis pour {{ archiveYear }}</p>
-        <p class="empty-hint">Sélectionnez une autre année dans le menu.</p>
-      </div>
-      <div v-else class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>N° Devis</th>
-              <th>Pièce</th>
-              <th class="th-hide-sm">Client</th>
-              <th class="th-hide-sm">Matière</th>
-              <th>Total TTC</th>
-              <th>Statut</th>
-              <th class="th-hide-md">Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="q in filteredArchives" :key="q.id">
-              <td class="td-num">{{ q.quote_number || '—' }}</td>
-              <td class="td-name">{{ q.project_name || '—' }}</td>
-              <td class="td-hide-sm">{{ q.client_name || '—' }}</td>
-              <td class="td-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
-              <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
-              <td>
-                <span :class="['arch-status', 'arch-status--' + (q.status || 'pending')]">
-                  {{ { pending:'En attente', sent:'Envoyé', accepted:'Accepté', refused:'Refusé', 'Prêt':'Prêt', 'Fini':'Fini', 'Accepté':'Accepté' }[q.status] || q.status || 'En attente' }}
-                </span>
-              </td>
-              <td class="td-date td-hide-md">{{ fmtDate(q.created_at) }}</td>
-              <td class="td-actions">
-                <button class="btn-pdf" @click="generateQuotePDF(q)" title="Télécharger PDF">
-                  <Download class="del-icon" />
-                </button>
-                <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
-                  <Trash2 class="del-icon" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <ArchivesTab
+      v-if="activeTab === 'archives'"
+      :quotes="quotes"
+      :loading="loading"
+      @delete-quote="confirmDeleteQuote($event)"
+      @count-change="archiveCount = $event"
+    />
 
     <!-- ── Onglet Statistiques ── -->
-    <div v-if="activeTab === 'stats'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">Statistiques & Business</h2>
-      </div>
-      <div v-if="loading" class="empty-state"><div class="spinner" /><p>Chargement…</p></div>
-      <div v-else class="stats-panel">
-
-        <!-- KPIs -->
-        <div class="stat-kpi-grid">
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">CA total (tous devis)</p>
-            <p class="stat-kpi-value stat-kpi-value--teal">{{ fmtEur(totalRevenue) }}</p>
-          </div>
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">CA devis acceptés</p>
-            <p class="stat-kpi-value stat-kpi-value--green">{{ fmtEur(statsRevenueAccepted) }}</p>
-          </div>
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">Panier moyen</p>
-            <p class="stat-kpi-value stat-kpi-value--teal">{{ fmtEur(avgCost) }}</p>
-          </div>
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">Taux d'acceptation</p>
-            <p class="stat-kpi-value stat-kpi-value--green">{{ statsAcceptanceRate }}%</p>
-          </div>
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">Acceptés</p>
-            <p class="stat-kpi-value stat-kpi-value--green">{{ statsAccepted }}</p>
-          </div>
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">Refusés</p>
-            <p class="stat-kpi-value stat-kpi-value--red">{{ statsRefused }}</p>
-          </div>
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">Envoyés</p>
-            <p class="stat-kpi-value stat-kpi-value--blue">{{ statsSent }}</p>
-          </div>
-          <div class="stat-kpi">
-            <p class="stat-kpi-label">En attente</p>
-            <p class="stat-kpi-value">{{ statsPending }}</p>
-          </div>
-        </div>
-
-        <!-- Répartition par statut — barre visuelle -->
-        <div class="stats-section" v-if="quotes.length">
-          <p class="stats-section-title">Répartition par statut</p>
-          <div class="stats-status-bar">
-            <div v-if="statsAccepted" class="stats-status-seg stats-status-seg--green"
-              :style="{ width: (statsAccepted / quotes.length * 100) + '%' }"
-              :title="'Acceptés : ' + statsAccepted"></div>
-            <div v-if="statsSent" class="stats-status-seg stats-status-seg--blue"
-              :style="{ width: (statsSent / quotes.length * 100) + '%' }"
-              :title="'Envoyés : ' + statsSent"></div>
-            <div v-if="statsPending" class="stats-status-seg stats-status-seg--amber"
-              :style="{ width: (statsPending / quotes.length * 100) + '%' }"
-              :title="'En attente : ' + statsPending"></div>
-            <div v-if="statsRefused" class="stats-status-seg stats-status-seg--red"
-              :style="{ width: (statsRefused / quotes.length * 100) + '%' }"
-              :title="'Refusés : ' + statsRefused"></div>
-          </div>
-          <div class="stats-status-legend">
-            <span class="stats-legend-dot stats-legend-dot--green"></span>Acceptés ({{ statsAccepted }})
-            <span class="stats-legend-dot stats-legend-dot--blue"></span>Envoyés ({{ statsSent }})
-            <span class="stats-legend-dot stats-legend-dot--amber"></span>En attente ({{ statsPending }})
-            <span class="stats-legend-dot stats-legend-dot--red"></span>Refusés ({{ statsRefused }})
-          </div>
-        </div>
-
-        <!-- CA par matière -->
-        <div class="stats-section" v-if="statsByMaterial.length">
-          <p class="stats-section-title">Chiffre d'affaires par matière</p>
-          <div class="stats-bar-list">
-            <div v-for="item in statsByMaterial" :key="item.mat" class="stats-bar-row">
-              <span class="stats-bar-label">{{ item.mat }}</span>
-              <div class="stats-bar-track">
-                <div class="stats-bar-fill"
-                  :style="{ width: totalRevenue > 0 ? (item.revenue / totalRevenue * 100) + '%' : '0%' }">
-                </div>
-              </div>
-              <span class="stats-bar-value">{{ fmtEur(item.revenue) }}</span>
-              <span class="stats-bar-count">{{ item.count }} devis</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
+    <StatsTab
+      v-if="activeTab === 'stats'"
+      :quotes="quotes"
+      :loading="loading"
+    />
 
     <!-- ── Onglet Catalogue ── -->
     <CatalogueTab
@@ -642,6 +512,8 @@ import CatalogueTab       from '../components/admin/CatalogueTab.vue'
 import SettingsTab        from '../components/admin/SettingsTab.vue'
 import GestionDevisTab    from '../components/admin/GestionDevisTab.vue'
 import EmailsTab          from '../components/admin/EmailsTab.vue'
+import ArchivesTab        from '../components/admin/ArchivesTab.vue'
+import StatsTab           from '../components/admin/StatsTab.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
   Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
@@ -654,7 +526,7 @@ import autoTable from 'jspdf-autotable'
 export default {
   name: 'AdminDashboard',
   components: {
-    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab, EmailsTab,
+    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab, EmailsTab, ArchivesTab, StatsTab,
     ShieldCheck, Users, FileText, Wallet, TrendingUp,
     Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
     Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
@@ -684,13 +556,12 @@ export default {
       isSending: false,
       quotesPage: 1,
       quotesPerPage: 10,
-      // ── Archives ──────────────────────────────────────────────────────────
-      archiveYear: new Date().getFullYear(),
       // ── UI état ──────────────────────────────────────────────────────────
       dossierDropdownOpen: false,
       burgerOpen: false,
       catalogueCount: 0,
       manageCount:    0,
+      archiveCount:   0,
     }
   },
   computed: {
@@ -698,7 +569,7 @@ export default {
       return [
         { id: 'manage',    label: 'Gestion Devis', icon: 'Send',             count: this.manageCount || 0 },
         { id: 'emails',    label: 'Emails',        icon: 'Mail' },
-        { id: 'archives',  label: 'Archives',      icon: 'Archive',          count: this.filteredArchives.length },
+        { id: 'archives',  label: 'Archives',      icon: 'Archive',          count: this.archiveCount || 0 },
         { id: 'stats',     label: 'Statistiques',  icon: 'BarChart2' },
         { id: 'catalogue', label: 'Catalogue',     icon: 'Package',          count: this.catalogueCount || 0 },
         { id: 'settings',  label: 'Paramètres',    icon: 'SlidersHorizontal' },
@@ -718,44 +589,6 @@ export default {
     },
     totalRevenue() { return this.quotes.reduce((a, q) => a + (q.total_cost || 0), 0) },
     avgCost()      { return this.quotes.length ? this.totalRevenue / this.quotes.length : 0 },
-    // ── Archives ──────────────────────────────────────────────────────────────
-    archiveYears() {
-      const years = [...new Set(
-        this.quotes.filter(q => q.created_at).map(q => new Date(q.created_at).getFullYear())
-      )].sort((a, b) => b - a)
-      return years.length ? years : [new Date().getFullYear()]
-    },
-    filteredArchives() {
-      return this.quotes.filter(q => {
-        if (!q.created_at) return false
-        return new Date(q.created_at).getFullYear() === this.archiveYear
-      })
-    },
-    // ── Statistiques ──────────────────────────────────────────────────────────
-    statsAccepted()        { return this.quotes.filter(q => ['accepted','Accepté'].includes(q.status)).length },
-    statsRefused()         { return this.quotes.filter(q => q.status === 'refused').length },
-    statsSent()            { return this.quotes.filter(q => q.status === 'sent').length },
-    statsPending()         { return this.quotes.filter(q => !q.status || q.status === 'pending').length },
-    statsRevenueAccepted() {
-      return this.quotes
-        .filter(q => ['accepted','Accepté'].includes(q.status))
-        .reduce((a, q) => a + (q.total_cost || 0), 0)
-    },
-    statsByMaterial() {
-      const map = {}
-      for (const q of this.quotes) {
-        const mat = q.material || 'Inconnu'
-        if (!map[mat]) map[mat] = { count: 0, revenue: 0 }
-        map[mat].count++
-        map[mat].revenue += q.total_cost || 0
-      }
-      return Object.entries(map)
-        .map(([mat, d]) => ({ mat, ...d }))
-        .sort((a, b) => b.revenue - a.revenue)
-    },
-    statsAcceptanceRate() {
-      return this.quotes.length ? Math.round(this.statsAccepted / this.quotes.length * 100) : 0
-    },
     filteredQuotes() {
       if (!this.filterUserId) return this.quotes
       return this.quotes.filter(q => q.user_id === this.filterUserId)
