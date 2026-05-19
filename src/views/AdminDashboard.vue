@@ -1011,25 +1011,13 @@
     <!-- ── Onglet Paramètres ── -->
     <div v-if="activeTab === 'settings'" class="panel-card">
       <div class="panel-header">
-        <h2 class="panel-title">
-          {{ settingsPage === 1 ? 'Paramètres de calcul' : 'Simulateur de coût rapide' }}
-        </h2>
-        <div class="settings-page-indicator">
-          <span :class="['spi-dot', settingsPage === 1 && 'spi-dot--active']" @click="settingsPage = 1"></span>
-          <span :class="['spi-dot', settingsPage === 2 && 'spi-dot--active']" @click="settingsPage = 2"></span>
-        </div>
+        <h2 class="panel-title">Paramètres de calcul</h2>
         <span v-if="settingsLoading" class="settings-loading-badge">Chargement…</span>
       </div>
 
-      <!-- ══ Page 1 : Paramètres de calcul ══ -->
-      <div v-if="settingsPage === 1" class="settings-single-col">
+      <!-- ══ Paramètres + Simulateur intégré ══ -->
+      <div class="settings-single-col">
         <div class="settings-main-card">
-
-          <!-- Header violet — miroir exact de sim-header -->
-          <div class="settings-card-hdr">
-            <SlidersHorizontal class="settings-card-hdr-icon" />
-            <span class="settings-card-hdr-title">Paramètres de calcul</span>
-          </div>
 
           <!-- Corps scrollable — flex:1 absorbe tout l'espace disponible -->
           <div class="settings-card-body">
@@ -1079,154 +1067,113 @@
               </p>
             </div>
 
+            <!-- ═══ Simulateur de coût rapide intégré ═══ -->
+            <div class="settings-sim-section">
+              <div class="settings-sim-hdr">
+                <BarChart2 class="settings-sim-hdr-icon" />
+                <span class="settings-sim-hdr-title">Simulateur de coût rapide</span>
+              </div>
+
+              <!-- Inputs : grille 4 cols desktop, 2 cols tablette, 1 col mobile -->
+              <div class="settings-sim-inputs">
+                <div class="settings-sim-field">
+                  <label class="settings-sim-lbl">Poids de la pièce</label>
+                  <div class="settings-sim-iw">
+                    <input class="settings-sim-input" type="number" min="0" step="1" v-model.number="simWeight" />
+                    <span class="settings-sim-unit">g</span>
+                  </div>
+                </div>
+                <div class="settings-sim-field">
+                  <label class="settings-sim-lbl">Durée d'impression</label>
+                  <div class="settings-sim-duration">
+                    <div class="settings-sim-iw">
+                      <input class="settings-sim-input settings-sim-input--sm" type="number" min="0" max="99" step="1" v-model.number="simPrintHours" />
+                      <span class="settings-sim-unit">h</span>
+                    </div>
+                    <div class="settings-sim-iw">
+                      <input class="settings-sim-input settings-sim-input--sm" type="number" min="0" max="59" step="5" v-model.number="simPrintMinutes" />
+                      <span class="settings-sim-unit">min</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-sim-field">
+                  <label class="settings-sim-lbl">Matière</label>
+                  <div class="sim-mat-select-wrap">
+                    <img v-if="simSelectedMaterial && isImageUrl(simSelectedMaterial.color_or_image)"
+                         class="sim-mat-indicator sim-mat-indicator--img"
+                         :src="simSelectedMaterial.color_or_image" :alt="simSelectedMaterial.name" />
+                    <span v-else-if="simSelectedMaterial"
+                          class="sim-mat-indicator sim-mat-indicator--swatch"
+                          :style="{ background: isHexColor(simSelectedMaterial.color_or_image) ? simSelectedMaterial.color_or_image : '#2e9cab' }">
+                    </span>
+                    <select class="sim-select" v-model="simMaterialId">
+                      <option :value="null">— Globaux —</option>
+                      <option v-for="m in materials" :key="m.id || m.name" :value="m.id">
+                        {{ m.name }}{{ m.brand ? ' · ' + m.brand : '' }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-sim-field">
+                  <label class="settings-sim-lbl">Type de projet</label>
+                  <select class="sim-select" v-model="simProjectType">
+                    <option v-for="pt in projectTypes" :key="pt.id" :value="pt.id">{{ pt.label }}</option>
+                  </select>
+                  <div v-if="simProjectCoeff !== 1" class="sim-coeff-badge" style="margin-top:0.35rem">
+                    <span class="sim-coeff-text">Coeff :</span>
+                    <strong class="sim-coeff-value">{{ simProjectCoeff > 1 ? '+' : '' }}{{ Math.round((simProjectCoeff - 1) * 100) }}%</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Résultats : bande horizontale -->
+              <div class="settings-sim-results">
+                <div class="settings-sim-result">
+                  <span class="settings-sim-result-lbl">Matière{{ simSelectedMaterial ? ' · ' + simSelectedMaterial.name : '' }}</span>
+                  <strong class="settings-sim-result-val">{{ fmtEur(simMaterialCost) }}</strong>
+                </div>
+                <div class="settings-sim-result-sep"></div>
+                <div class="settings-sim-result">
+                  <span class="settings-sim-result-lbl">Machine + élec.</span>
+                  <strong class="settings-sim-result-val">{{ fmtEur(simMachineCost) }}</strong>
+                </div>
+                <div class="settings-sim-result-sep"></div>
+                <div class="settings-sim-result settings-sim-result--neutral">
+                  <span class="settings-sim-result-lbl">Coût de revient</span>
+                  <strong class="settings-sim-result-val">{{ fmtEur(simTotalCost) }}</strong>
+                </div>
+                <div class="settings-sim-result-sep"></div>
+                <div class="settings-sim-result settings-sim-result--margin">
+                  <span class="settings-sim-result-lbl">Marge ({{ priceMarginDefault }}%)</span>
+                  <strong class="settings-sim-result-val">+ {{ fmtEur(simMarginAmount) }}</strong>
+                </div>
+                <div class="settings-sim-result-sep"></div>
+                <div class="settings-sim-result settings-sim-result--total">
+                  <span class="settings-sim-result-lbl">Prix de vente estimé</span>
+                  <strong class="settings-sim-result-val">{{ fmtEur(simSalePrice) }}</strong>
+                </div>
+              </div>
+              <p class="sim-disclaimer">*Indicatif — hors emballage, post-traitement et remises.</p>
+            </div>
+
           </div>
           <!-- /settings-card-body -->
 
-          <!-- Footer ancré en bas — miroir de sim-nav -->
+          <!-- Footer ancré en bas — deux boutons centrés -->
           <div class="settings-single-footer">
             <button class="btn-save-settings" @click="saveSettings" :disabled="settingsSaving || settingsLoading">
               <span v-if="settingsSaved">✓ Sauvegardé</span>
               <span v-else-if="settingsSaving">Sauvegarde…</span>
               <span v-else>Sauvegarder les paramètres</span>
             </button>
-            <button class="btn-settings-next" @click="settingsPage = 2; simStep = 1">
-              Simulateur de coût →
+            <button class="btn-settings-next" @click="activeTab = 'catalogue'">
+              Catalogue →
             </button>
           </div>
 
         </div>
       </div>
 
-      <!-- ══ Page 2 : Simulateur pleine largeur ══ -->
-      <div v-if="settingsPage === 2" class="settings-single-col settings-single-col--sim">
-
-        <!-- Retour page 1 -->
-        <button class="btn-settings-prev" @click="settingsPage = 1">
-          ← Paramètres de calcul
-        </button>
-
-        <!-- Simulateur pleine largeur -->
-        <div class="sim-card sim-card--wide">
-
-          <!-- En-tête -->
-          <div class="sim-header">
-            <BarChart2 class="sim-header-icon" />
-            <span class="sim-header-title">Simulateur de coût rapide</span>
-          </div>
-
-          <!-- Indicateur d'étapes -->
-          <div class="sim-steps-bar">
-            <button :class="['sim-step-dot', simStep === 1 && 'sim-step-dot--active', simStep > 1 && 'sim-step-dot--done']"
-                    @click="simStep = 1" title="Données techniques">1</button>
-            <div :class="['sim-step-line', simStep > 1 && 'sim-step-line--done']"></div>
-            <button :class="['sim-step-dot', simStep === 2 && 'sim-step-dot--active', simStep > 2 && 'sim-step-dot--done']"
-                    @click="simStep = 2" title="Matière & Projet">2</button>
-            <div :class="['sim-step-line', simStep > 2 && 'sim-step-line--done']"></div>
-            <button :class="['sim-step-dot', simStep === 3 && 'sim-step-dot--active']"
-                    @click="simStep = 3" title="Résultats financiers">3</button>
-          </div>
-
-          <!-- Étape 1 : Données techniques -->
-          <div v-if="simStep === 1" class="sim-body sim-body--wide">
-            <p class="sim-step-label">① Données techniques</p>
-            <div class="sim-wide-grid">
-              <div class="sim-field">
-                <label class="sim-field-label">Poids de la pièce</label>
-                <div class="sim-input-wrap">
-                  <input class="sim-input sim-input--lg" type="number" min="0" step="1" v-model.number="simWeight" />
-                  <span class="sim-unit">g</span>
-                </div>
-              </div>
-              <div class="sim-field">
-                <label class="sim-field-label">Durée d'impression</label>
-                <div class="sim-duration-row">
-                  <div class="sim-input-wrap">
-                    <input class="sim-input" type="number" min="0" max="99" step="1" v-model.number="simPrintHours" />
-                    <span class="sim-unit">h</span>
-                  </div>
-                  <div class="sim-input-wrap">
-                    <input class="sim-input" type="number" min="0" max="59" step="5" v-model.number="simPrintMinutes" />
-                    <span class="sim-unit">min</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Étape 2 : Matière & Projet -->
-          <div v-if="simStep === 2" class="sim-body sim-body--wide">
-            <p class="sim-step-label">② Matière & Projet</p>
-            <div class="sim-wide-grid">
-              <div class="sim-field">
-                <label class="sim-field-label">Matière</label>
-                <div class="sim-mat-select-wrap">
-                  <img v-if="simSelectedMaterial && isImageUrl(simSelectedMaterial.color_or_image)"
-                       class="sim-mat-indicator sim-mat-indicator--img"
-                       :src="simSelectedMaterial.color_or_image" :alt="simSelectedMaterial.name" />
-                  <span v-else-if="simSelectedMaterial"
-                        class="sim-mat-indicator sim-mat-indicator--swatch"
-                        :style="{ background: isHexColor(simSelectedMaterial.color_or_image) ? simSelectedMaterial.color_or_image : '#2e9cab' }">
-                  </span>
-                  <select class="sim-select" v-model="simMaterialId">
-                    <option :value="null">— Globaux —</option>
-                    <option v-for="m in materials" :key="m.id || m.name" :value="m.id">
-                      {{ m.name }}{{ m.brand ? ' · ' + m.brand : '' }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="sim-field">
-                <label class="sim-field-label">Type de projet</label>
-                <select class="sim-select" v-model="simProjectType">
-                  <option v-for="pt in projectTypes" :key="pt.id" :value="pt.id">{{ pt.label }}</option>
-                </select>
-                <div v-if="simProjectCoeff !== 1" class="sim-coeff-badge" style="margin-top:0.4rem">
-                  <span class="sim-coeff-text">Coefficient :</span>
-                  <strong class="sim-coeff-value">{{ simProjectCoeff > 1 ? '+' : '' }}{{ Math.round((simProjectCoeff - 1) * 100) }}%</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Étape 3 : Résultats financiers -->
-          <div v-if="simStep === 3" class="sim-body sim-body--wide">
-            <p class="sim-step-label">③ Résultats financiers</p>
-            <div class="sim-results sim-results--wide">
-              <div class="sim-result-row">
-                <span class="sim-result-label">Matière{{ simSelectedMaterial ? ' (' + simSelectedMaterial.name + ')' : '' }}</span>
-                <span class="sim-result-value">{{ fmtEur(simMaterialCost) }}</span>
-              </div>
-              <div class="sim-result-row">
-                <span class="sim-result-label">Machine + électricité</span>
-                <span class="sim-result-value">{{ fmtEur(simMachineCost) }}</span>
-              </div>
-              <div class="sim-result-divider"></div>
-              <div class="sim-result-row sim-result-row--sub">
-                <span class="sim-result-label">Coût de revient</span>
-                <span class="sim-result-value sim-result-value--neutral">{{ fmtEur(simTotalCost) }}</span>
-              </div>
-              <div class="sim-result-row sim-result-row--margin">
-                <span class="sim-result-label">Marge ({{ priceMarginDefault }}%)</span>
-                <span class="sim-result-value sim-result-value--margin">+ {{ fmtEur(simMarginAmount) }}</span>
-              </div>
-              <div class="sim-result-divider"></div>
-              <div class="sim-result-row sim-result-row--total">
-                <span class="sim-result-label">Prix de vente estimé</span>
-                <span class="sim-result-value sim-result-value--total">{{ fmtEur(simSalePrice) }}</span>
-              </div>
-            </div>
-            <p class="sim-disclaimer">*Indicatif — hors emballage, post-traitement et remises.</p>
-          </div>
-
-          <!-- Navigation Précédent / Suivant -->
-          <div class="sim-nav">
-            <button v-if="simStep > 1" class="sim-nav-btn sim-nav-btn--prev" @click="simStep--">← Préc.</button>
-            <span class="sim-nav-counter">{{ simStep }} / 3</span>
-            <button v-if="simStep < 3" class="sim-nav-btn sim-nav-btn--next" @click="simStep++">Suiv. →</button>
-          </div>
-
-        </div>
-      </div>
     </div>
 
     <!-- ── Modal envoi devis ── -->
@@ -2255,6 +2202,7 @@ export default {
           poids_restant:            m.poids_restant !== null && m.poids_restant !== undefined
                                       ? parseInt(m.poids_restant)
                                       : parseInt(m.poids_depart) || 1000,
+          quantite:                 parseInt(m.quantite) || 1,
           updated_at:               now,
         })
         const toUpsert = this.materials.filter(m => m.id && !m._new).map(m => matPayload(m, true))
@@ -2293,6 +2241,7 @@ export default {
         color_or_image: '#2e9cab', image_url: null,
         stock_status: 'En Stock',
         poids_depart: 1000, poids_restant: null,
+        quantite: 1,
       })
     },
     async deleteMaterial(mat, idx) {
@@ -3643,7 +3592,7 @@ export default {
 .settings-unit { font-size: 0.7rem; font-weight: 700; color: #a0aec0; white-space: nowrap; }
 .settings-footer { padding-top: 0.25rem; margin-top: auto; }
 .btn-save-settings {
-  display: inline-flex; align-items: center; padding: 0.5rem 1.3rem;
+  display: inline-flex; align-items: center; justify-content: center; text-align: center; padding: 0.5rem 1.3rem;
   border: none; border-radius: 999px;
   background: linear-gradient(135deg, #9f7aea 0%, #7c3aed 100%);
   color: #fff; font-size: 0.82rem; font-weight: 700;
@@ -4122,25 +4071,73 @@ export default {
 /* Texte intro inline dans paramètres */
 .settings-intro-inline { font-size: 0.73rem; color: #a0aec0; margin: 0; }
 
-/* Simulateur pleine largeur (page 2 Paramètres) */
-.sim-card--wide {
-  flex: 1; min-height: 0; overflow: visible;
-  display: flex; flex-direction: column;
+/* ═══ Simulateur intégré dans la carte Paramètres ═══ */
+.settings-sim-section {
+  flex-shrink: 0;
+  border-top: 1px solid #f0f4f8;
+  padding: 1.1rem 1.25rem 1rem;
+  display: flex; flex-direction: column; gap: 0.85rem;
+  background: #fafbfd;
 }
-.sim-body--wide { padding: 0.75rem 1rem; flex: 1; display: flex; flex-direction: column; gap: 0.65rem; }
-.sim-wide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.sim-results--wide { max-width: 520px; }
-.sim-input--lg { width: 90px; }
+.settings-sim-hdr { display: flex; align-items: center; gap: 0.5rem; }
+.settings-sim-hdr-icon { width: 1rem; height: 1rem; color: #7c3aed; flex-shrink: 0; }
+.settings-sim-hdr-title {
+  font-size: 0.7rem; font-weight: 800;
+  letter-spacing: 0.07em; text-transform: uppercase; color: #7c3aed;
+}
+.settings-sim-inputs {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem 1rem;
+}
+.settings-sim-field { display: flex; flex-direction: column; gap: 0.3rem; }
+.settings-sim-lbl {
+  font-size: 0.67rem; font-weight: 700; color: #718096;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.settings-sim-iw {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+}
+.settings-sim-input {
+  width: 66px; border: none; outline: none; background: transparent;
+  font-size: 0.85rem; font-weight: 700; color: #2d3748; font-family: inherit;
+}
+.settings-sim-input--sm { width: 40px; }
+.settings-sim-unit { font-size: 0.7rem; color: #a0aec0; font-weight: 600; }
+.settings-sim-duration { display: flex; gap: 0.4rem; }
+
+.settings-sim-results {
+  display: flex; align-items: stretch;
+  background: #fff; border: 1px solid #e8edf3; border-radius: 12px; overflow: hidden;
+}
+.settings-sim-result {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 0.65rem 0.4rem; gap: 0.18rem; text-align: center; min-width: 0;
+}
+.settings-sim-result-lbl {
+  font-size: 0.61rem; color: #a0aec0; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.settings-sim-result-val { font-size: 0.82rem; font-weight: 800; color: #2d3748; }
+.settings-sim-result-sep { width: 1px; background: #f0f4f8; flex-shrink: 0; align-self: stretch; }
+.settings-sim-result--neutral .settings-sim-result-val { color: #4a5568; }
+.settings-sim-result--margin  .settings-sim-result-val { color: #059669; }
+.settings-sim-result--total { background: #f7f0ff; }
+.settings-sim-result--total .settings-sim-result-val  { color: #7c3aed; font-size: 0.92rem; }
+.settings-sim-result--total .settings-sim-result-lbl  { color: #9f7aea; font-weight: 700; }
 
 @media (max-width: 640px) {
-  .sim-wide-grid { grid-template-columns: 1fr; }
+  .settings-sim-inputs { grid-template-columns: 1fr; }
+  .settings-sim-results { flex-direction: column; }
+  .settings-sim-result-sep { width: auto; height: 1px; }
   .settings-single-footer { flex-direction: column; align-items: stretch; }
   .btn-settings-next { margin-left: 0; justify-content: center; }
 }
 
-/* ── Paramètres — Desktop (≥ 1025px) : grande carte unique (même architecture que le Simulateur) ── */
+/* ── Paramètres — Desktop (≥ 1025px) : grande carte pleine hauteur ── */
 @media (min-width: 1025px) {
-  /* Container : flex-colonne avec padding, pas de grid */
+  /* Container : flex-colonne, remplit toute la hauteur du panel-card */
   .settings-single-col {
     display: flex;
     flex-direction: column;
@@ -4149,7 +4146,7 @@ export default {
     overflow: hidden;
   }
 
-  /* Grande carte englobante — flex:1 = remplit tout l'espace (exactement comme sim-card--wide) */
+  /* Grande carte englobante — remplit tout l'espace restant */
   .settings-main-card {
     flex: 1;
     min-height: 0;
@@ -4162,39 +4159,34 @@ export default {
     overflow: hidden;
   }
 
-  /* En-tête violet — miroir exact de sim-header */
-  .settings-card-hdr {
-    display: flex; align-items: center; gap: 0.45rem;
-    padding: 0.45rem 1.25rem; flex-shrink: 0;
-    background: linear-gradient(135deg, #9f7aea 0%, #7c3aed 100%);
-    border-radius: 20px 20px 0 0;
-  }
-  .settings-card-hdr-icon  { width: 0.8rem; height: 0.8rem; color: rgba(255,255,255,0.85); flex-shrink: 0; }
-  .settings-card-hdr-title { font-size: 0.68rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.07em; }
-
-  /* Corps scrollable de la grande carte — flex:1 absorbe tout l'espace, scrolle si besoin */
+  /* Corps scrollable — flex:1 absorbe tout l'espace, border-radius en haut de la carte */
   .settings-card-body {
-    flex: 1; min-height: 0;
-    display: flex; flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
   }
 
-  /* Grille 2 colonnes intérieure — flex-shrink:0, la settings-card-body scrolle si besoin */
+  /* Grille 2 colonnes — flex:1 pour que les cartes remplissent l'espace */
   .settings-params-grid {
-    flex-shrink: 0;
+    flex: 1;
+    min-height: 0;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 1.25rem;
-    padding: 1.25rem;
+    padding: 1.25rem 1.25rem 0;
+    overflow: hidden;
   }
 
-  /* Sous-cartes Machine & Marge : légèrement grisées pour contraster avec la carte blanche */
+  /* Sous-cartes Machine & Marge */
   .settings-params-grid .settings-section {
     background: #f7f9fc;
     border: 1px solid #f0f4f8;
     border-radius: 14px;
     padding: 1.25rem;
     gap: 0.65rem;
+    overflow-y: auto;
   }
   .settings-params-grid .settings-section-title {
     font-size: 0.65rem;
@@ -4208,7 +4200,7 @@ export default {
     border-radius: 10px;
   }
 
-  /* Bannière Catalogue : barre horizontale en bas de la grille, ancrée dans la carte */
+  /* Bannière Catalogue : barre horizontale ancrée sous la grille */
   .settings-section--wide {
     flex-direction: row;
     align-items: center;
@@ -4238,25 +4230,22 @@ export default {
     padding: 0 !important;
   }
 
-  /* Footer : ancré en bas de la grande carte, boutons à droite */
+  /* Simulateur intégré : grille 4 colonnes desktop */
+  .settings-sim-section { padding: 1.1rem 1.5rem 1rem; }
+  .settings-sim-inputs { grid-template-columns: repeat(4, 1fr); }
+
+  /* Footer : boutons centrés côte à côte en bas de la carte */
   .settings-single-footer {
-    justify-content: flex-end;
+    justify-content: center;
+    gap: 1.5rem;
     margin-top: 0;
-    padding: 0.85rem 1.25rem;
+    padding: 1.25rem 1.25rem 2rem;
     border-top: 1px solid #f0e6ff;
     flex-shrink: 0;
   }
 
-  /* Boutons : largeur naturelle */
-  .btn-save-settings {
-    padding: 0.65rem 2.25rem;
-    font-size: 0.85rem;
-  }
-  .btn-settings-next {
-    margin-left: 0;
-    padding: 0.65rem 1.5rem;
-    font-size: 0.85rem;
-  }
+  .btn-save-settings { padding: 0.65rem 2.25rem; font-size: 0.85rem; }
+  .btn-settings-next { margin-left: 0; padding: 0.65rem 1.5rem; font-size: 0.85rem; }
 }
 
 /* ── Onglet Gestion Devis — page 2 (send) ── */
@@ -4544,34 +4533,16 @@ export default {
    Mobile   : tout empilé, gap confortable (1rem)
 ═══════════════════════════════════════════════════════════════════ */
 
-/* Desktop (≥ 1025 px) : limiter la largeur des inputs */
-@media (min-width: 1025px) {
-  .settings-single-col {
-    max-width: 700px;
-    margin: 0 auto;
-    width: 100%;
-  }
-  .settings-single-col--sim { max-width: none; margin: 0; }
-}
-
-/* Tablette (641 px – 1024 px) : grille 2 colonnes pour les sections */
+/* Tablette (641 px – 1024 px) : colonne simple (settings-main-card = seul enfant direct) */
 @media (min-width: 641px) and (max-width: 1024px) {
   .settings-single-col {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    align-content: start;
-  }
-  /* Le simulateur reste en colonne simple */
-  .settings-single-col--sim {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
   }
-  /* Footer → pleine largeur de la grille */
-  .settings-single-col .settings-single-footer {
-    grid-column: 1 / -1;
-    margin-top: 0;
+  .settings-single-col--sim {
+    gap: 0.65rem;
   }
 }
 
