@@ -551,296 +551,21 @@
       </div>
     </div>
 
-    <!-- ── Onglet Gestion Devis (1 colonne, 2 pages) ── -->
-    <div v-if="activeTab === 'manage'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">
-          {{ managePage === 1 ? 'Devis sauvegardés' : 'Transmettre un devis' }}
-        </h2>
-        <div class="settings-page-indicator">
-          <span :class="['spi-dot', managePage === 1 && 'spi-dot--active']" @click="managePage = 1"></span>
-          <span :class="['spi-dot', managePage === 2 && 'spi-dot--active']" @click="managePage = 2"></span>
-        </div>
-        <div v-if="managePage === 1" class="panel-actions">
-          <select class="filter-select" v-model="filterUserId">
-            <option value="">Tous les clients</option>
-            <option v-for="p in visibleProfiles" :key="p.id" :value="p.id">
-              {{ p.full_name || quoteInfoByUser[p.id]?.name || p.id.slice(0, 8) }}
-            </option>
-          </select>
-          <button class="btn-manage-transmit" @click="managePage = 2">
-            Transmettre →
-          </button>
-        </div>
-      </div>
+    <!-- ── Onglet Gestion Devis ── -->
+    <GestionDevisTab
+      v-if="activeTab === 'manage'"
+      :quotes="quotes"
+      :profiles="profiles"
+      :loading="loading"
+      :email-subject="emailSubject"
+      :email-intro-client="emailIntroClient"
+      :sender-name="senderName"
+      @open-send-modal="sendTarget = $event"
+      @delete-quote="confirmDeleteQuote($event)"
+      @count-change="manageCount = $event"
+    />
 
-      <!-- ══ Page 1 : Tableau complet des devis ══ -->
-      <template v-if="managePage === 1">
-        <div v-if="loading" class="empty-state"><div class="spinner" /><p>Chargement…</p></div>
-        <div v-else-if="filteredQuotes.length === 0" class="empty-state">
-          <FileText class="empty-icon" />
-          <p class="empty-title">Aucun devis</p>
-          <p class="empty-hint">Créez votre premier devis depuis le calculateur.</p>
-        </div>
-        <template v-else>
-          <!-- Vue Tableau — Desktop uniquement (≥1025px) -->
-          <div class="manage-table-view">
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>N° Devis</th>
-                    <th>Pièce</th>
-                    <th>Client</th>
-                    <th class="th-hide-sm">Matière</th>
-                    <th>Total TTC</th>
-                    <th>Statut</th>
-                    <th class="th-hide-md">Date</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="q in paginatedManageQuotes" :key="q.id"
-                      :class="sendableQuotes.some(s => s.id === q.id) ? 'tr--sendable' : ''">
-                    <td class="td-num">{{ q.quote_number || '—' }}</td>
-                    <td class="td-name">{{ q.project_name || '—' }}</td>
-                    <td class="td-client">{{ q.client_name || '—' }}</td>
-                    <td class="td-hide-sm"><span class="mat-tag">{{ q.material || '—' }}</span></td>
-                    <td class="td-total">{{ fmtEur(q.total_cost) }}</td>
-                    <td>
-                      <select :class="['status-select', 'status-' + (q.status || 'pending')]"
-                        :value="q.status || 'pending'"
-                        @change="changeStatus(q, $event.target.value)">
-                        <option value="pending">En attente</option>
-                        <option value="sent">Envoyé</option>
-                        <option value="accepted">Accepté</option>
-                        <option value="refused">Refusé</option>
-                      </select>
-                    </td>
-                    <td class="td-date td-hide-md">{{ fmtDate(q.created_at) }}</td>
-                    <td class="td-actions">
-                      <button class="btn-edit" @click="editQuote(q)" title="Modifier">
-                        <Pencil class="del-icon" />
-                      </button>
-                      <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF">
-                        <Download class="del-icon" />
-                      </button>
-                      <button v-if="sendableQuotes.some(s => s.id === q.id)"
-                        class="btn-send-row"
-                        @click="selectedQuoteId = q.id; selectedQuote = q; managePage = 2"
-                        title="Transmettre par e-mail">
-                        <Send class="del-icon" />
-                      </button>
-                      <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
-                        <Trash2 class="del-icon" />
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div v-if="totalManagePages > 1" class="pagination manage-pgn">
-              <button class="page-btn" :disabled="managePaginePage === 1" @click="managePaginePage--">← Préc.</button>
-              <span class="manage-pgn-info">Page {{ managePaginePage }} / {{ totalManagePages }}</span>
-              <button class="page-btn" :disabled="managePaginePage === totalManagePages" @click="managePaginePage++">Suiv. →</button>
-            </div>
-          </div>
 
-          <!-- Vue Grille 2 colonnes — Tablette (641px–1024px) -->
-          <div class="manage-tab-grid">
-            <div v-for="q in paginatedManageQuotes" :key="q.id" class="mtcard">
-              <div class="mtcard-head">
-                <span class="mtcard-client">{{ q.client_name || '—' }}</span>
-                <span :class="['mtcard-badge', 'arch-status--' + (q.status || 'pending')]">
-                  {{ { pending: 'En attente', sent: 'Envoyé', accepted: 'Accepté', refused: 'Refusé' }[q.status] || 'En attente' }}
-                </span>
-              </div>
-              <div class="mtcard-body">
-                <div class="mtcard-field">
-                  <span class="mtcard-label">Pièce</span>
-                  <span class="mtcard-value">{{ q.project_name || '—' }}</span>
-                </div>
-                <div class="mtcard-field">
-                  <span class="mtcard-label">N° Devis</span>
-                  <span class="mtcard-value mtcard-value--mono">{{ q.quote_number || '—' }}</span>
-                </div>
-                <div class="mtcard-row2">
-                  <div class="mtcard-field">
-                    <span class="mtcard-label">Matière</span>
-                    <span class="mat-tag">{{ q.material || '—' }}</span>
-                  </div>
-                  <div class="mtcard-field">
-                    <span class="mtcard-label">Date</span>
-                    <span class="mtcard-value">{{ fmtDate(q.created_at) }}</span>
-                  </div>
-                </div>
-                <div class="mtcard-total">{{ fmtEur(q.total_cost) }}</div>
-              </div>
-              <div class="mtcard-foot">
-                <select :class="['status-select', 'status-' + (q.status || 'pending'), 'mtcard-status-sel']"
-                  :value="q.status || 'pending'"
-                  @change="changeStatus(q, $event.target.value)">
-                  <option value="pending">En attente</option>
-                  <option value="sent">Envoyé</option>
-                  <option value="accepted">Accepté</option>
-                  <option value="refused">Refusé</option>
-                </select>
-                <div class="mtcard-btns">
-                  <button class="btn-edit" @click="editQuote(q)" title="Modifier">
-                    <Pencil class="del-icon" />
-                  </button>
-                  <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF">
-                    <Download class="del-icon" />
-                  </button>
-                  <button v-if="sendableQuotes.some(s => s.id === q.id)"
-                    class="btn-send-row"
-                    @click="selectedQuoteId = q.id; selectedQuote = q; managePage = 2"
-                    title="Transmettre par e-mail">
-                    <Send class="del-icon" />
-                  </button>
-                  <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
-                    <Trash2 class="del-icon" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div v-if="totalManagePages > 1" class="pagination manage-pgn manage-tab-pgn">
-              <button class="page-btn" :disabled="managePaginePage === 1" @click="managePaginePage--">← Préc.</button>
-              <span class="manage-pgn-info">Page {{ managePaginePage }} / {{ totalManagePages }}</span>
-              <button class="page-btn" :disabled="managePaginePage === totalManagePages" @click="managePaginePage++">Suiv. →</button>
-            </div>
-          </div>
-
-          <!-- Vue Cartes — Mobile (≤640px) -->
-          <div class="manage-cards-view">
-            <div v-for="q in paginatedManageQuotes" :key="q.id" class="mcard">
-              <div class="mcard-top">
-                <span class="mcard-client">{{ q.client_name || '—' }}</span>
-                <span :class="['mcard-badge', 'arch-status--' + (q.status || 'pending')]">
-                  {{ { pending: 'En attente', sent: 'Envoyé', accepted: 'Accepté', refused: 'Refusé' }[q.status] || 'En attente' }}
-                </span>
-              </div>
-              <div class="mcard-meta">
-                <p class="mcard-piece">{{ q.project_name || '—' }}</p>
-                <p class="mcard-sub">N° {{ q.quote_number || '—' }} · {{ q.material || '—' }}</p>
-              </div>
-              <div class="mcard-row">
-                <span class="mcard-date">{{ fmtDate(q.created_at) }}</span>
-                <span class="mcard-total">{{ fmtEur(q.total_cost) }}</span>
-              </div>
-              <div class="mcard-bottom">
-                <select :class="['status-select', 'status-' + (q.status || 'pending'), 'mcard-status-sel']"
-                  :value="q.status || 'pending'"
-                  @change="changeStatus(q, $event.target.value)">
-                  <option value="pending">En attente</option>
-                  <option value="sent">Envoyé</option>
-                  <option value="accepted">Accepté</option>
-                  <option value="refused">Refusé</option>
-                </select>
-                <div class="mcard-actions">
-                  <button class="btn-edit" @click="editQuote(q)" title="Modifier">
-                    <Pencil class="del-icon" />
-                  </button>
-                  <button class="btn-pdf" @click="generateQuotePDF(q)" title="PDF">
-                    <Download class="del-icon" />
-                  </button>
-                  <button v-if="sendableQuotes.some(s => s.id === q.id)"
-                    class="btn-send-row"
-                    @click="selectedQuoteId = q.id; selectedQuote = q; managePage = 2"
-                    title="Transmettre par e-mail">
-                    <Send class="del-icon" />
-                  </button>
-                  <button class="btn-del" @click="confirmDeleteQuote(q)" title="Supprimer">
-                    <Trash2 class="del-icon" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div v-if="totalManagePages > 1" class="pagination manage-pgn">
-              <button class="page-btn" :disabled="managePaginePage === 1" @click="managePaginePage--">← Préc.</button>
-              <span class="manage-pgn-info">Page {{ managePaginePage }} / {{ totalManagePages }}</span>
-              <button class="page-btn" :disabled="managePaginePage === totalManagePages" @click="managePaginePage++">Suiv. →</button>
-            </div>
-          </div>
-        </template>
-      </template>
-
-      <!-- ══ Page 2 : Transmettre un devis ══ -->
-      <div v-if="managePage === 2" class="manage-single-col">
-        <button class="btn-manage-prev" @click="managePage = 1">
-          ← Retour aux devis sauvegardés
-        </button>
-
-        <div class="manage-send-card">
-          <!-- Sélecteur -->
-          <div class="manage-send-section">
-            <p class="manage-send-label"><Send class="manage-send-label-icon" /> Sélectionner un devis à transmettre</p>
-            <select class="ecf-select" v-model="selectedQuoteId" @change="onQuoteSelect">
-              <option value="">— Choisir un devis —</option>
-              <option v-for="opt in quoteSelectOptions" :key="opt.id" :value="opt.id">
-                {{ opt.label }}
-              </option>
-            </select>
-            <p v-if="quoteSelectOptions.length === 0" class="ecf-hint ecf-hint--warn">
-              Aucun devis avec adresse e-mail client trouvé.
-            </p>
-          </div>
-
-          <!-- Destinataire -->
-          <div v-if="selectedQuote" class="ecf-recipient">
-            <span class="ecf-recipient-label">Destinataire</span>
-            <span class="ecf-recipient-email">{{ selectedQuote.client_email }}</span>
-            <span class="ecf-recipient-badge">✓</span>
-          </div>
-
-          <!-- Aperçu mail -->
-          <div v-if="selectedQuote" class="ecf-preview-block manage-preview-block">
-            <p class="ecf-preview-label">Aperçu de l'email</p>
-            <p class="ecf-preview-subject">{{ resolvedSubject(selectedQuote) }}</p>
-            <p v-if="resolvedIntro(selectedQuote)" class="ecf-preview-intro">{{ resolvedIntro(selectedQuote) }}</p>
-            <div v-else class="preview-intro preview-intro--muted">Aucun texte d'introduction — configurez le modèle dans l'onglet Emails.</div>
-          </div>
-
-          <!-- Stripe Payment Link -->
-          <div v-if="selectedQuote" class="stripe-link-row">
-            <label class="stripe-link-label">🔗 Lien de paiement Stripe</label>
-            <div class="stripe-link-wrap">
-              <input type="url" class="stripe-link-input"
-                v-model="selectedQuote.stripe_payment_link"
-                placeholder="https://buy.stripe.com/…"
-                @change="saveStripeLink(selectedQuote)" />
-              <button v-if="selectedQuote.stripe_payment_link"
-                class="stripe-copy-btn"
-                @click="copyStripeLink(selectedQuote.stripe_payment_link)"
-                title="Copier le lien">
-                📋
-              </button>
-            </div>
-            <p class="stripe-link-hint">Générez ce lien depuis le <a href="https://dashboard.stripe.com/payment-links" target="_blank">Dashboard Stripe</a>, collez-le ici, puis envoyez-le au client par email.</p>
-          </div>
-
-          <!-- Actions -->
-          <div v-if="selectedQuote" class="manage-send-actions">
-            <button
-              v-if="!['Prêt','Fini','Accepté','accepted','sent'].includes(selectedQuote.status)"
-              class="btn-validate-quote"
-              @click="saveQuote">
-              <CheckCircle class="btn-send-icon-sm" />
-              Marquer comme Prêt
-            </button>
-            <button class="btn-confirm-send" @click="sendTarget = selectedQuote">
-              <Send class="btn-send-icon-sm" />
-              Envoyer {{ selectedQuote.quote_number }}
-            </button>
-          </div>
-          <div v-else class="manage-empty-send">
-            <Send class="empty-icon manage-empty-icon" />
-            <p class="empty-title">Sélectionnez un devis ci-dessus</p>
-            <p class="empty-hint">Seuls les devis avec une adresse e-mail client sont disponibles.</p>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- ── Onglet Archives ── -->
     <div v-if="activeTab === 'archives'" class="panel-card">
@@ -1102,6 +827,7 @@ import ToastMessage       from '../components/ToastMessage.vue'
 import CatalogueSection   from '../components/CatalogueSection.vue'
 import CatalogueTab       from '../components/admin/CatalogueTab.vue'
 import SettingsTab        from '../components/admin/SettingsTab.vue'
+import GestionDevisTab    from '../components/admin/GestionDevisTab.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
   Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
@@ -1114,7 +840,7 @@ import autoTable from 'jspdf-autotable'
 export default {
   name: 'AdminDashboard',
   components: {
-    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab,
+    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab,
     ShieldCheck, Users, FileText, Wallet, TrendingUp,
     Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
     Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
@@ -1165,15 +891,14 @@ export default {
       dossierDropdownOpen: false,
       burgerOpen: false,
       catalogueCount: 0,
-      managePage:          1,
-      managePaginePage:    1,
-      emailStep:           1,
+      manageCount:    0,
+      emailStep:      1,
     }
   },
   computed: {
     tabs() {
       return [
-        { id: 'manage',    label: 'Gestion Devis', icon: 'Send',             count: this.sendableQuotes.length + this.sentQuotes.length },
+        { id: 'manage',    label: 'Gestion Devis', icon: 'Send',             count: this.manageCount || 0 },
         { id: 'emails',    label: 'Emails',        icon: 'Mail' },
         { id: 'archives',  label: 'Archives',      icon: 'Archive',          count: this.filteredArchives.length },
         { id: 'stats',     label: 'Statistiques',  icon: 'BarChart2' },
@@ -1192,14 +917,6 @@ export default {
       if (this.activeTab === 'quotes')  return 'Tous les devis'
       const t = this.tabs.find(t => t.id === this.activeTab)
       return t ? t.label : ''
-    },
-    sentQuotes() {
-      return this.quotes.filter(q => q.status === 'sent')
-    },
-    sendableQuotes() {
-      return this.quotes.filter(q =>
-        ['Fini', 'Prêt', 'Accepté', 'accepted'].includes(q.status) && q.client_email
-      )
     },
     quoteSelectOptions() {
       return this.quotes
@@ -1301,16 +1018,9 @@ export default {
     totalQuotesPages() {
       return Math.max(1, Math.ceil(this.filteredQuotes.length / this.quotesPerPage))
     },
-    paginatedManageQuotes() {
-      const start = (this.managePaginePage - 1) * this.quotesPerPage
-      return this.filteredQuotes.slice(start, start + this.quotesPerPage)
-    },
-    totalManagePages() {
-      return Math.max(1, Math.ceil(this.filteredQuotes.length / this.quotesPerPage))
-    },
   },
   watch: {
-    filterUserId() { this.quotesPage = 1; this.managePaginePage = 1 },
+    filterUserId() { this.quotesPage = 1 },
   },
   async created() {
     const { data, error } = await supabase.auth.getUser()
@@ -1406,25 +1116,6 @@ export default {
         console.error('[saveQuote]', err)
         this.$refs.toast?.show(`Erreur : ${err.message}`, 'error')
       }
-    },
-
-    async saveStripeLink(quote) {
-      if (!quote?.id) return
-      const { error } = await supabase
-        .from('quotes')
-        .update({ stripe_payment_link: quote.stripe_payment_link || null })
-        .eq('id', quote.id)
-      if (error) {
-        this.$refs.toast?.show('Erreur sauvegarde lien Stripe : ' + error.message, 'error')
-      } else {
-        this.$refs.toast?.show('Lien Stripe sauvegardé.', 'success', 2000)
-      }
-    },
-    copyStripeLink(url) {
-      if (!url) return
-      navigator.clipboard.writeText(url)
-        .then(() => this.$refs.toast?.show('Lien copié !', 'success', 1500))
-        .catch(() => this.$refs.toast?.show('Impossible de copier.', 'error'))
     },
 
     async sendTestEmail() {
