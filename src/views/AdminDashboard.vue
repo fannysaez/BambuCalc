@@ -355,201 +355,14 @@
       </template>
     </div>
 
-    <!-- ── Onglet Emails (1 colonne, 3 étapes) ── -->
-    <div v-if="activeTab === 'emails'" class="panel-card">
-      <div class="panel-header">
-        <h2 class="panel-title">
-          {{ ['Configuration & Modèle', 'Rédaction', 'Aperçu & Envoi'][emailStep - 1] }}
-        </h2>
-        <div class="sim-steps-bar email-steps-bar">
-          <button :class="['sim-step-dot', emailStep === 1 && 'sim-step-dot--active', emailStep > 1 && 'sim-step-dot--done']"
-                  @click="emailStep = 1" title="Configuration">1</button>
-          <div :class="['sim-step-line', emailStep > 1 && 'sim-step-line--done']"></div>
-          <button :class="['sim-step-dot', emailStep === 2 && 'sim-step-dot--active', emailStep > 2 && 'sim-step-dot--done']"
-                  @click="emailStep = 2" title="Rédaction">2</button>
-          <div :class="['sim-step-line', emailStep > 2 && 'sim-step-line--done']"></div>
-          <button :class="['sim-step-dot', emailStep === 3 && 'sim-step-dot--active']"
-                  @click="emailStep = 3" title="Aperçu & Envoi">3</button>
-        </div>
-      </div>
+    <!-- ── Onglet Emails ── -->
+    <EmailsTab
+      v-if="activeTab === 'emails'"
+      :quotes="quotes"
+      @open-send-modal="sendTarget = $event"
+      @settings-changed="onEmailSettingsChanged"
+    />
 
-      <!-- ══ Étape 1 : Configuration & Modèle ══ -->
-      <div v-if="emailStep === 1" class="email-single-col">
-        <div class="email-step-section">
-          <p class="ecf-section-label"><Settings class="ecf-section-icon" /> Paramètres d'envoi</p>
-          <div class="ecf-group">
-            <label class="ecf-label">Nom expéditeur</label>
-            <input class="ecf-input" v-model="senderName" placeholder="BambuCalc" />
-          </div>
-          <div class="ecf-group">
-            <label class="ecf-label">Email de réponse</label>
-            <input class="ecf-input" v-model="replyTo" type="email" placeholder="votre@email.com" />
-          </div>
-        </div>
-
-        <div class="email-step-section">
-          <p class="ecf-section-label"><Mail class="ecf-section-icon" /> Modèle d'email</p>
-          <div class="ecf-group">
-            <label class="ecf-label">Sujet du mail (template)</label>
-            <input class="ecf-input" v-model="emailSubject" placeholder="Votre devis BambuCalc — [numéro]" />
-            <p class="ecf-hint">Variable : [numéro]</p>
-          </div>
-          <div class="ecf-group">
-            <label class="ecf-label">Texte d'introduction (template)</label>
-            <textarea class="ecf-input ecf-textarea ecf-textarea--lg" v-model="emailIntroClient"
-              placeholder="Bonjour [client], merci pour votre demande. Voici le récapitulatif de votre devis." />
-            <p class="ecf-hint">Variables : [client] · [client_nom] · [numéro] · [projet] · [total]</p>
-          </div>
-        </div>
-
-        <div class="email-step-section">
-          <p class="ecf-section-label"><Bell class="ecf-section-icon" /> Notifications</p>
-          <p class="notif-sub">Reçues par vous</p>
-          <div class="notif-row">
-            <div class="notif-text"><p class="notif-label">Nouvelle demande</p><p class="notif-desc">Quand un client soumet un devis</p></div>
-            <button :class="['toggle-switch', notifNewQuote && 'toggle-switch--on']" @click="notifNewQuote = !notifNewQuote"><span class="toggle-knob" /></button>
-          </div>
-          <div class="notif-row">
-            <div class="notif-text"><p class="notif-label">Devis accepté</p><p class="notif-desc">Quand un client accepte un devis</p></div>
-            <button :class="['toggle-switch', notifAccepted && 'toggle-switch--on']" @click="notifAccepted = !notifAccepted"><span class="toggle-knob" /></button>
-          </div>
-          <p class="notif-sub notif-sub--spaced">Envoyées aux clients</p>
-          <div class="notif-row">
-            <div class="notif-text"><p class="notif-label">Confirmation de demande</p><p class="notif-desc">Accusé de réception auto</p></div>
-            <button :class="['toggle-switch', notifClientConfirm && 'toggle-switch--on']" @click="notifClientConfirm = !notifClientConfirm"><span class="toggle-knob" /></button>
-          </div>
-          <div class="notif-row">
-            <div class="notif-text"><p class="notif-label">Changement de statut</p><p class="notif-desc">Notification mise à jour statut</p></div>
-            <button :class="['toggle-switch', notifStatusChange && 'toggle-switch--on']" @click="notifStatusChange = !notifStatusChange"><span class="toggle-knob" /></button>
-          </div>
-        </div>
-
-        <div class="email-step-footer">
-          <button class="btn-save-email" @click="saveEmailSettings" :disabled="emailSaving">
-            <span v-if="emailSaved">✓ Sauvegardé</span>
-            <span v-else-if="emailSaving">Sauvegarde…</span>
-            <span v-else>Sauvegarder</span>
-          </button>
-          <button class="btn-email-next" @click="emailStep = 2">Rédaction →</button>
-        </div>
-      </div>
-
-      <!-- ══ Étape 2 : Rédaction ══ -->
-      <div v-if="emailStep === 2" class="email-single-col">
-        <div class="email-step-section">
-          <p class="ecf-section-label">Sélectionner un devis actif</p>
-          <select class="ecf-select" v-model="selectedQuoteId" @change="onQuoteSelect">
-            <option value="">— Choisir un devis pour prévisualiser l'envoi —</option>
-            <option v-for="opt in quoteSelectOptions" :key="opt.id" :value="opt.id">
-              {{ opt.label }}
-            </option>
-          </select>
-          <p v-if="quoteSelectOptions.length === 0" class="ecf-hint ecf-hint--warn">
-            Aucun devis avec adresse e-mail client trouvé.
-          </p>
-        </div>
-
-        <template v-if="selectedQuote">
-          <div class="ecf-recipient">
-            <span class="ecf-recipient-label">Destinataire</span>
-            <span class="ecf-recipient-email">{{ selectedQuote.client_email }}</span>
-            <span class="ecf-recipient-badge">✓</span>
-          </div>
-
-          <div class="ecf-preview-block">
-            <p class="ecf-preview-label">Aperçu avec ce devis</p>
-            <p class="ecf-preview-subject">{{ resolvedSubject(selectedQuote) }}</p>
-            <p v-if="resolvedIntro(selectedQuote)" class="ecf-preview-intro">{{ resolvedIntro(selectedQuote) }}</p>
-            <div v-else class="preview-intro preview-intro--muted">Aucun texte d'introduction — ajoutez-en un à l'étape 1.</div>
-            <div class="ecf-preview-actions">
-              <button
-                v-if="!['Prêt','Fini','Accepté','accepted','sent'].includes(selectedQuote.status)"
-                class="btn-validate-quote"
-                @click="saveQuote">
-                <CheckCircle class="btn-send-icon-sm" />
-                Marquer comme Prêt
-              </button>
-            </div>
-          </div>
-        </template>
-        <div v-else class="email-empty-step">
-          <Mail class="empty-icon" />
-          <p class="empty-title">Aucun devis sélectionné</p>
-          <p class="empty-hint">Choisissez un devis dans la liste ci-dessus pour prévisualiser l'email.</p>
-        </div>
-
-        <div class="email-step-footer">
-          <button class="btn-email-prev" @click="emailStep = 1">← Configuration</button>
-          <button class="btn-email-next" @click="emailStep = 3">Aperçu final →</button>
-        </div>
-      </div>
-
-      <!-- ══ Étape 3 : Aperçu Final & Envoi ══ -->
-      <div v-if="emailStep === 3" class="email-single-col">
-        <!-- Aperçu rendu -->
-        <div class="email-step-section">
-          <p class="ecf-section-label">Aperçu de l'email</p>
-          <template v-if="selectedQuote">
-            <div class="preview-subject">{{ resolvedSubject(selectedQuote) }}</div>
-            <div v-if="resolvedIntro(selectedQuote)" class="preview-intro">{{ resolvedIntro(selectedQuote) }}</div>
-            <div v-else class="preview-intro preview-intro--muted">Aucun texte d'introduction configuré.</div>
-            <!-- Indicateur PDF -->
-            <div class="send-pdf-indicator" :class="attachPdfAuto ? 'send-pdf-indicator--on' : 'send-pdf-indicator--off'">
-              <FileText class="send-pdf-icon" />
-              <span v-if="attachPdfAuto">Devis PDF joint automatiquement</span>
-              <span v-else>PDF non joint (désactivé)</span>
-              <span class="send-pdf-status">{{ attachPdfAuto ? '✓' : '○' }}</span>
-            </div>
-          </template>
-          <div v-else class="email-empty-step">
-            <p class="empty-hint">Retournez à l'étape 2 pour sélectionner un devis.</p>
-          </div>
-        </div>
-
-        <!-- Pièces jointes -->
-        <div class="email-step-section">
-          <p class="ecf-section-label"><FileText class="ecf-section-icon" /> Pièces jointes</p>
-          <div class="notif-row">
-            <div class="notif-text"><p class="notif-label">Joindre le devis PDF</p><p class="notif-desc">Fichier PDF généré automatiquement</p></div>
-            <button :class="['toggle-switch', attachPdfAuto && 'toggle-switch--on']" @click="attachPdfAuto = !attachPdfAuto"><span class="toggle-knob" /></button>
-          </div>
-          <div class="ecf-group" style="margin-top: 0.5rem;">
-            <label class="ecf-label">Document global (CGV, guide…)</label>
-            <div
-              :class="['attach-drop', attachDragOver && 'attach-drop--over']"
-              @click="$refs.attachInput.click()"
-              @dragover.prevent="attachDragOver = true"
-              @dragleave.prevent="attachDragOver = false"
-              @drop.prevent="handleAttachDrop">
-              <template v-if="globalAttachmentName">
-                <p class="attach-filename">📎 {{ globalAttachmentName }}</p>
-                <button class="attach-clear" @click.stop="clearAttachment" title="Retirer">×</button>
-              </template>
-              <template v-else>
-                <p class="attach-hint">Glisser un PDF ici</p>
-                <span class="attach-sub">ou cliquer pour parcourir</span>
-              </template>
-              <input ref="attachInput" type="file" accept=".pdf" style="display:none" @change="handleAttachFile" />
-            </div>
-          </div>
-        </div>
-
-        <div class="email-step-footer">
-          <button class="btn-email-prev" @click="emailStep = 2">← Rédaction</button>
-          <div class="email-step-actions">
-            <button class="btn-test-email" @click="sendTestEmail" :disabled="testEmailSending">
-              <span v-if="testEmailSent">✓ Envoyé !</span>
-              <span v-else-if="testEmailSending">Envoi…</span>
-              <span v-else>Email de test</span>
-            </button>
-            <button class="btn-send-inline" @click="sendTarget = selectedQuote" :disabled="!selectedQuote">
-              <Send class="btn-send-icon-sm" />
-              {{ selectedQuote ? 'Envoyer ' + selectedQuote.quote_number : 'Envoyer' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- ── Onglet Gestion Devis ── -->
     <GestionDevisTab
@@ -828,6 +641,7 @@ import CatalogueSection   from '../components/CatalogueSection.vue'
 import CatalogueTab       from '../components/admin/CatalogueTab.vue'
 import SettingsTab        from '../components/admin/SettingsTab.vue'
 import GestionDevisTab    from '../components/admin/GestionDevisTab.vue'
+import EmailsTab          from '../components/admin/EmailsTab.vue'
 import {
   ShieldCheck, Users, FileText, Wallet, TrendingUp, Trash2,
   Download, Pencil, Mail, Bell, Settings, Send, CheckCircle, Archive,
@@ -840,7 +654,7 @@ import autoTable from 'jspdf-autotable'
 export default {
   name: 'AdminDashboard',
   components: {
-    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab,
+    ToastMessage, CatalogueSection, CatalogueTab, SettingsTab, GestionDevisTab, EmailsTab,
     ShieldCheck, Users, FileText, Wallet, TrendingUp,
     Trash2, Download, Pencil, Mail, Bell, Settings, Send, CheckCircle,
     Archive, BarChart2, SlidersHorizontal, Package, ChevronDown,
@@ -862,29 +676,14 @@ export default {
       filterUserId: '',
       deleteTarget: null,
       deleting: false,
-      notifNewQuote:      saved.notifNewQuote      ?? true,
-      notifAccepted:      saved.notifAccepted      ?? true,
-      notifClientConfirm: saved.notifClientConfirm ?? true,
-      notifStatusChange:  saved.notifStatusChange  ?? true,
       senderName:       saved.senderName       || 'BambuCalc',
-      replyTo:          saved.replyTo          || '',
       emailSubject:     saved.emailSubject     || 'Votre devis BambuCalc — [numéro]',
       emailIntroClient: saved.emailIntroClient || '',
-      emailSettingsId: null,
-      emailSaving: false,
-      emailSaved: false,
-      testEmailSending: false,
-      testEmailSent: false,
+      attachPdfAuto:    saved.attachPdfAuto    ?? true,
       sendTarget: null,
       isSending: false,
-      selectedQuoteId: '',
-      selectedQuote: null,
       quotesPage: 1,
       quotesPerPage: 10,
-      attachPdfAuto:       saved.attachPdfAuto ?? true,
-      attachDragOver:      false,
-      globalAttachmentName: localStorage.getItem('bambu_global_attachment_name') || '',
-      globalAttachment:    null,
       // ── Archives ──────────────────────────────────────────────────────────
       archiveYear: new Date().getFullYear(),
       // ── UI état ──────────────────────────────────────────────────────────
@@ -892,7 +691,6 @@ export default {
       burgerOpen: false,
       catalogueCount: 0,
       manageCount:    0,
-      emailStep:      1,
     }
   },
   computed: {
@@ -917,18 +715,6 @@ export default {
       if (this.activeTab === 'quotes')  return 'Tous les devis'
       const t = this.tabs.find(t => t.id === this.activeTab)
       return t ? t.label : ''
-    },
-    quoteSelectOptions() {
-      return this.quotes
-        .filter(q => q.client_email)
-        .map(q => {
-          const civ  = q.client_civility ? q.client_civility + ' ' : ''
-          const name = q.client_last_name
-            ? `${civ}${q.client_last_name}`
-            : (q.client_name || q.client_email || '—')
-          const statusBadge = q.status === 'accepted' ? ' ✓' : ''
-          return { id: q.id, label: `${q.quote_number || '—'} — ${name}${statusBadge}` }
-        })
     },
     totalRevenue() { return this.quotes.reduce((a, q) => a + (q.total_cost || 0), 0) },
     avgCost()      { return this.quotes.length ? this.totalRevenue / this.quotes.length : 0 },
@@ -1032,8 +818,7 @@ export default {
     const meta = data.user.user_metadata || {}
     const full = meta.full_name || meta.name || ''
     this.displayName = full.split(' ')[0] || data.user.email?.split('@')[0] || ''
-    await Promise.all([this.loadData(), this.loadEmailSettings()])
-    this.autoSelectFirstQuote()
+    await this.loadData()
   },
   mounted() {
     this._lockScroll = () => {
@@ -1099,117 +884,6 @@ export default {
         this.deleting = false
       }
     },
-    async saveQuote() {
-      if (!this.selectedQuote) return
-      try {
-        const { error } = await supabase
-          .from('quotes')
-          .update({ status: 'Prêt' })
-          .eq('id', this.selectedQuote.id)
-        if (error) throw error
-        // Mise à jour réactive locale
-        const idx = this.quotes.findIndex(q => q.id === this.selectedQuote.id)
-        if (idx !== -1) this.quotes[idx].status = 'Prêt'
-        this.selectedQuote = { ...this.selectedQuote, status: 'Prêt' }
-        this.$refs.toast?.show(`Devis ${this.selectedQuote.quote_number} marqué comme "Prêt" — visible dans l'onglet Envoyer.`, 'success', 3000)
-      } catch (err) {
-        console.error('[saveQuote]', err)
-        this.$refs.toast?.show(`Erreur : ${err.message}`, 'error')
-      }
-    },
-
-    async sendTestEmail() {
-      console.log('[sendTestEmail] called, selectedQuote=', this.selectedQuote?.quote_number ?? 'aucun')
-      this.testEmailSending = true
-      try {
-        const { data: authData } = await supabase.auth.getUser()
-        const adminEmail = authData?.user?.email || ''
-        if (!adminEmail) throw new Error('Email admin introuvable — vérifiez votre session.')
-
-        const testQuote = {
-          quote_number:      'DEV-TEST-0000',
-          project_name:      'Pièce de test',
-          material:          'PLA+',
-          quantity:          1,
-          total_cost:        42.50,
-          client_email:      adminEmail,
-          client_name:       this.displayName || 'Admin',
-          client_first_name: this.displayName || 'Admin',
-          client_civility:   'M.',
-          payment_method:    'virement',
-          deposit_percent:   0,
-        }
-
-        // ── PDF en pièce jointe ───────────────────────────────────────────────
-        let pdfBase64  = null
-        let pdfFilename = null
-        if (this.attachPdfAuto) {
-          try {
-            const quoteForPdf = this.selectedQuote  // copie locale pour éviter les accès implicites
-            let doc
-            if (quoteForPdf) {
-              doc = generateQuotePDFDoc(quoteForPdf)
-              pdfFilename = `devis-${quoteForPdf.quote_number || 'bambucalc'}.pdf`
-            } else {
-              // Fallback : PDF minimal de test (aucun devis sélectionné)
-              doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-              doc.setFillColor(46, 156, 171)
-              doc.rect(0, 0, 210, 24, 'F')
-              doc.setTextColor(255, 255, 255)
-              doc.setFontSize(18)
-              doc.setFont('helvetica', 'bold')
-              doc.text('BambuCalc', 14, 14)
-              doc.setFontSize(10)
-              doc.setFont('helvetica', 'normal')
-              doc.text('Impression 3D professionnelle', 14, 20)
-              doc.setFontSize(13)
-              doc.setFont('helvetica', 'bold')
-              doc.setTextColor(27, 47, 57)
-              doc.text('Document de test — Vérification configuration e-mail', 14, 38)
-              doc.setFontSize(9)
-              doc.setFont('helvetica', 'normal')
-              doc.setTextColor(113, 128, 150)
-              doc.text('Généré automatiquement pour valider l\'intégration Resend.', 14, 48)
-              doc.text(`Expéditeur  : ${this.senderName || 'BambuCalc'}`, 14, 58)
-              doc.text(`Destinataire : ${adminEmail}`, 14, 64)
-              doc.text(`Date         : ${new Date().toLocaleDateString('fr-FR')}`, 14, 70)
-              pdfFilename = 'test-bambucalc.pdf'
-            }
-            pdfBase64 = pdfToBase64(doc)
-            console.log('[sendTestEmail] PDF prêt, longueur base64 :', pdfBase64.length)
-          } catch (pdfErr) {
-            console.warn('[sendTestEmail] génération PDF échouée, envoi sans pièce jointe :', pdfErr)
-          }
-        }
-
-        // ── Appel edge function ───────────────────────────────────────────────
-        const { error } = await supabase.functions.invoke('send-quote-email', {
-          body: {
-            quote:    testQuote,
-            pdfBase64: pdfBase64 ?? null,
-            filename: pdfFilename ?? null,
-          },
-        })
-        if (error) throw new Error(error.message || JSON.stringify(error))
-
-        this.testEmailSent = true
-        setTimeout(() => { this.testEmailSent = false }, 4000)
-        if (this.$refs.toast) {
-          this.$refs.toast.show(`Mail de test envoyé à ${adminEmail}`, 'success', 4000)
-        } else {
-          alert(`Mail de test envoyé à ${adminEmail}`)
-        }
-      } catch (err) {
-        console.error('[sendTestEmail]', err)
-        if (this.$refs.toast) {
-          this.$refs.toast.show(`Erreur : ${err.message || 'edge function indisponible'}`, 'error')
-        } else {
-          alert(`Erreur : ${err.message || 'edge function indisponible'}`)
-        }
-      } finally {
-        this.testEmailSending = false
-      }
-    },
     startNewQuote() {
       this.calculatorStore.resetForNewQuote()
       this.$router.push('/calculator/1')
@@ -1269,111 +943,11 @@ export default {
       quote.status = newStatus
       this.$refs.toast.show('Statut mis à jour.', 'success', 1800)
     },
-    async loadEmailSettings() {
-      const { data, error } = await supabase
-        .from('email_settings')
-        .select('*')
-        .single()
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Table vide — premier démarrage, normal, le premier Save fera un INSERT
-          return
-        }
-        if (error.code === '42501') {
-          // Politique RLS non encore propagée ou absente — démarrage silencieux
-          // avec les valeurs du localStorage ou les valeurs par défaut.
-          // Ne pas bloquer l'UI : l'utilisateur peut quand même utiliser l'onglet Emails.
-          console.warn('[loadEmailSettings] RLS 42501 — démarrage avec valeurs par défaut')
-          return
-        }
-        // Toute autre erreur (réseau, schéma, etc.) → log discret, pas de bandeau
-        console.error('[loadEmailSettings]', error.code, error.message)
-        return
-      }
-      if (!data) return
-      this.emailSettingsId     = data.id
-      this.senderName          = data.sender_name          || 'BambuCalc'
-      this.replyTo             = data.reply_to             || ''
-      this.emailSubject        = data.email_subject        || 'Votre devis BambuCalc — [numéro]'
-      this.emailIntroClient    = data.email_intro_client   || ''
-      this.notifNewQuote       = data.notif_new_quote      ?? true
-      this.notifAccepted       = data.notif_accepted       ?? true
-      this.notifClientConfirm  = data.notif_client_confirm ?? true
-      this.notifStatusChange   = data.notif_status_change  ?? true
-      this._syncEmailCache()
-    },
-    autoSelectFirstQuote() {
-      if (this.quoteSelectOptions.length > 0 && !this.selectedQuoteId) {
-        this.selectedQuoteId = this.quoteSelectOptions[0].id
-        this.selectedQuote   = this.quotes.find(q => q.id === this.selectedQuoteId) || null
-      }
-    },
-    onQuoteSelect() {
-      this.selectedQuote = this.quotes.find(q => q.id === this.selectedQuoteId) || null
-    },
-    _syncEmailCache() {
-      localStorage.setItem('bambu_email_settings', JSON.stringify({
-        senderName: this.senderName, replyTo: this.replyTo,
-        emailSubject: this.emailSubject, emailIntroClient: this.emailIntroClient,
-        notifNewQuote: this.notifNewQuote, notifAccepted: this.notifAccepted,
-        notifClientConfirm: this.notifClientConfirm, notifStatusChange: this.notifStatusChange,
-        attachPdfAuto: this.attachPdfAuto,
-      }))
-    },
-    async saveEmailSettings() {
-      this.emailSaving = true
-      try {
-        // Payload sans `id` — Postgres génère nextval() pour un INTEGER
-        const payload = {
-          sender_name:          this.senderName,
-          reply_to:             this.replyTo,
-          email_subject:        this.emailSubject,
-          email_intro_client:   this.emailIntroClient,
-          notif_new_quote:      this.notifNewQuote,
-          notif_accepted:       this.notifAccepted,
-          notif_client_confirm: this.notifClientConfirm,
-          notif_status_change:  this.notifStatusChange,
-          updated_at:           new Date().toISOString(),
-        }
-
-        let opError
-        if (this.emailSettingsId) {
-          // UPDATE — cible la ligne par son id INTEGER récupéré au chargement
-          const result = await supabase
-            .from('email_settings')
-            .update(payload)
-            .eq('id', this.emailSettingsId)
-          opError = result.error
-        } else {
-          // INSERT — id absent du payload, Postgres assigne nextval() automatiquement
-          const result = await supabase
-            .from('email_settings')
-            .insert(payload)
-            .select('id')
-            .single()
-          opError = result.error
-          if (result.data?.id) this.emailSettingsId = result.data.id
-        }
-
-        if (opError) {
-          console.error('[saveEmailSettings]', { code: opError.code, message: opError.message, details: opError.details, hint: opError.hint })
-          throw new Error(opError.message || JSON.stringify(opError))
-        }
-
-        this._syncEmailCache()
-        this.emailSaved = true
-        setTimeout(() => { this.emailSaved = false }, 2000)
-        this.$refs.toast?.show('Paramètres e-mail sauvegardés.', 'success', 2500)
-      } catch (err) {
-        console.error('[saveEmailSettings] caught:', err)
-        if (this.$refs.toast) {
-          this.$refs.toast.show(`Erreur sauvegarde : ${err.message}`, 'error')
-        } else {
-          alert(`Erreur sauvegarde : ${err.message}`)
-        }
-      } finally {
-        this.emailSaving = false
-      }
+    onEmailSettingsChanged(s) {
+      this.senderName       = s.senderName
+      this.emailSubject     = s.emailSubject
+      this.emailIntroClient = s.emailIntroClient
+      this.attachPdfAuto    = s.attachPdfAuto
     },
     exportPDF() {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
@@ -1471,7 +1045,6 @@ export default {
         if (!updateErr) {
           const idx = this.quotes.findIndex(q => q.id === this.sendTarget.id)
           if (idx !== -1) this.quotes[idx].status = 'sent'
-          if (this.selectedQuote?.id === this.sendTarget.id) this.selectedQuote.status = 'sent'
         }
 
         this.$refs.toast?.show(`Email envoyé à ${this.sendTarget.client_email} !`, 'success')
@@ -1482,29 +1055,6 @@ export default {
       } finally {
         this.isSending = false
       }
-    },
-    handleAttachFile(e) {
-      const file = e.target.files[0]
-      if (file) {
-        this.globalAttachment = file
-        this.globalAttachmentName = file.name
-        localStorage.setItem('bambu_global_attachment_name', file.name)
-      }
-    },
-    handleAttachDrop(e) {
-      this.attachDragOver = false
-      const file = e.dataTransfer.files[0]
-      if (file && file.type === 'application/pdf') {
-        this.globalAttachment = file
-        this.globalAttachmentName = file.name
-        localStorage.setItem('bambu_global_attachment_name', file.name)
-      }
-    },
-    clearAttachment() {
-      this.globalAttachment = null
-      this.globalAttachmentName = ''
-      if (this.$refs.attachInput) this.$refs.attachInput.value = ''
-      localStorage.removeItem('bambu_global_attachment_name')
     },
     fmtEur(v) { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v ?? 0) },
     fmtDate(iso) {
